@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { useI18n } from '../lib/i18n'
+import { authErrorKey, useI18n } from '../lib/i18n'
 import { LangSwitch } from '../components/ui'
 
 export default function Login() {
@@ -23,11 +23,11 @@ export default function Login() {
 
     if (mode === 'signin') {
       const err = await signIn(email, password)
-      if (err) setError(err)
+      if (err) setError(t(authErrorKey(err)))
       else nav('/')
     } else {
       const err = await signUp(email, password)
-      if (err) setError(err)
+      if (err) setError(t(authErrorKey(err)))
       else if (live) setNotice('Check your email to confirm the account, then sign in.')
       else nav('/')
     }

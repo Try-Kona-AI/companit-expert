@@ -269,6 +269,15 @@ const en = {
   'login.haveAccount': 'Already have an account? ',
   'login.signUp': 'Sign up',
   'login.demoNote': 'Demo build: any email and password signs you in.',
+  // Supabase returns auth errors in English; these are the ones a user can hit.
+  'err.invalid_credentials': 'Wrong email or password.',
+  'err.email_not_confirmed': 'That email has not been confirmed yet.',
+  'err.user_exists': 'An account with that email already exists.',
+  'err.weak_password': 'That password is too short. Use at least six characters.',
+  'err.rate_limited': 'Too many attempts. Wait a minute and try again.',
+  'err.signup_disabled': 'New accounts are closed. Ask the owner for a login.',
+  'err.network': 'Could not reach the server. Check your connection.',
+  'err.unknown': 'Could not sign in. Try again.',
 
   // ---- public pay page ----------------------------------------------------
   'pay.header': 'Secure invoice payment',
@@ -541,6 +550,14 @@ const ru: Record<TKey, string> = {
   'login.haveAccount': 'Уже есть аккаунт? ',
   'login.signUp': 'Регистрация',
   'login.demoNote': 'Демо-версия: подойдёт любой email и пароль.',
+  'err.invalid_credentials': 'Неверный email или пароль.',
+  'err.email_not_confirmed': 'Этот email пока не подтверждён.',
+  'err.user_exists': 'Аккаунт с таким email уже существует.',
+  'err.weak_password': 'Пароль слишком короткий. Нужно не меньше шести символов.',
+  'err.rate_limited': 'Слишком много попыток. Подождите минуту и попробуйте снова.',
+  'err.signup_disabled': 'Регистрация закрыта. Попросите доступ у владельца.',
+  'err.network': 'Не удалось связаться с сервером. Проверьте соединение.',
+  'err.unknown': 'Не удалось войти. Попробуйте ещё раз.',
 
   'pay.header': 'Безопасная оплата счёта',
   'pay.invoice': 'Счёт',
@@ -581,6 +598,22 @@ interface I18nCtx {
   t: TFn
   /** BCP 47 locale for date formatting */
   locale: string
+}
+
+/**
+ * Supabase auth errors arrive as English strings. Map the ones a person can
+ * actually hit onto dictionary keys so the login screen stays in one language.
+ */
+export function authErrorKey(message: string): TKey {
+  const m = message.toLowerCase()
+  if (m.includes('invalid login credentials')) return 'err.invalid_credentials'
+  if (m.includes('email not confirmed'))       return 'err.email_not_confirmed'
+  if (m.includes('already registered') || m.includes('already exists')) return 'err.user_exists'
+  if (m.includes('password should be'))        return 'err.weak_password'
+  if (m.includes('rate limit') || m.includes('too many'))  return 'err.rate_limited'
+  if (m.includes('signups not allowed') || m.includes('signup is disabled')) return 'err.signup_disabled'
+  if (m.includes('failed to fetch') || m.includes('network')) return 'err.network'
+  return 'err.unknown'
 }
 
 const I18nContext = createContext<I18nCtx | null>(null)
