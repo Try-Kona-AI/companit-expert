@@ -16,7 +16,38 @@ Mac changes.
 Never run these while working on this project: `gh auth login`, `gh auth switch`,
 `supabase login`, `supabase link`, `vercel login`, `vercel switch`.
 
-## 0. Credentials, once
+## The short way
+
+Fill in one file, run one command:
+
+```bash
+cd ~/Projects/companit-expert
+cp .env.kona.example .env.kona && chmod 600 .env.kona && open -t .env.kona
+```
+
+Paste the three Kona tokens, save, then:
+
+```bash
+npm run kona:setup
+```
+
+It does the whole chain and is safe to re-run: GitHub repo, push, Supabase
+project, schema, API keys, `.env.local`, Vercel project, env vars, git
+connection, production deploy, Supabase secrets, and the `send-email` function.
+It prompts only for what it cannot derive: the Postgres password you choose, the
+Resend key, and the org or team to use when a token can see more than one.
+Derived values (project ref, team slug) are written back into `.env.kona`, so a
+second run skips everything already done.
+
+Two things it deliberately leaves to you: creating the owner login, and closing
+signups afterwards. It prints both commands when it finishes.
+
+The step-by-step below is the same sequence by hand, for when something needs
+doing out of order.
+
+## Step by step
+
+### 0. Credentials, once
 
 ```bash
 cd ~/Projects/companit-expert
@@ -34,7 +65,7 @@ set -a; source .env.kona; set +a
 
 `.env.kona` is gitignored. Tokens live only in that file and in the current shell.
 
-## 1. GitHub
+### 1. GitHub
 
 ```bash
 GH_TOKEN="$GH_TOKEN" gh repo create Try-Kona-AI/companit-expert \
@@ -45,7 +76,7 @@ git push -u origin main
 
 The push uses the `github-kona` SSH key, not the token.
 
-## 2. Supabase
+### 2. Supabase
 
 ```bash
 supabase orgs list                                    # copy the Kona org id
@@ -97,7 +128,7 @@ Daily overdue sweep, in the SQL editor:
 select cron.schedule('mark-overdue', '0 8 * * *', $$select public.mark_overdue_invoices()$$);
 ```
 
-## 3. Vercel
+### 3. Vercel
 
 ```bash
 npx vercel@latest teams ls --token "$VERCEL_TOKEN"    # copy the Kona team slug
@@ -130,7 +161,7 @@ If the production URL differs from the guess above, update `APP_URL`:
 supabase secrets set --project-ref "$KONA_SUPABASE_REF" APP_URL='https://<real-url>'
 ```
 
-## 4. Verify
+### 4. Verify
 
 ```bash
 git -C . remote -v                                     # github-kona:Try-Kona-AI/...
