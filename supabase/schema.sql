@@ -139,8 +139,8 @@ begin
   select t.id into v_tenant from public.tenants t order by t.created_at limit 1;
 
   if v_tenant is null then
-    insert into public.tenants (name, owner_user_id)
-    values ('Companit Expert', auth.uid())
+    insert into public.tenants (name, owner_name, owner_user_id)
+    values ('Companit Expert', 'Yan', auth.uid())
     returning id into v_tenant;
 
     insert into public.tenant_settings (tenant_id) values (v_tenant)

@@ -18,7 +18,7 @@ const bottomNav: { to: string; key: TKey }[] = [
   { to: '/settings', key: 'nav.settings' },
 ]
 
-function Mark({ size = 32, id = 'ce' }: { size?: number; id?: string }) {
+function LogoMark({ size = 32, id = 'ce' }: { size?: number; id?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
       <rect x="1" y="1" width="32" height="32" rx="9" fill={`url(#${id})`} />
@@ -56,7 +56,7 @@ export default function Layout() {
   const sidebar = (
     <>
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <Mark />
+        <LogoMark />
         <div className="leading-tight">
           <div className="text-sm font-semibold text-white">{businessName}</div>
           <div className="text-[11px] text-slate-400">{t('brand.tagline')}</div>
@@ -116,7 +116,7 @@ export default function Layout() {
             </svg>
           )}
         </button>
-        <Mark size={24} id="ce-mobile" />
+        <LogoMark size={24} id="ce-mobile" />
         <span className="truncate text-sm font-semibold text-white">{businessName}</span>
         <div className="ml-auto"><LangSwitch /></div>
       </header>

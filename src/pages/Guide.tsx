@@ -15,7 +15,8 @@ const sections: Section[] = [
   { n: 4, icon: '💰', steps: 3, hasTip: false },
   { n: 5, icon: '✅', steps: 4, hasTip: true },
   { n: 6, icon: '🔄', steps: 4, hasTip: true },
-  { n: 7, icon: '🌐', steps: 3, hasTip: true },
+  { n: 7, icon: '⚙️', steps: 4, hasTip: false },
+  { n: 8, icon: '🌐', steps: 3, hasTip: true },
 ]
 
 const ADVISOR_EMAIL = 'mike@trykona.ai'

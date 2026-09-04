@@ -1,11 +1,105 @@
 import { useEffect, useState } from 'react'
-import { getSettings, getTenant, saveSettings, saveTenant } from '../lib/api'
+import {
+  getSettings, getTenant, listCustomers, listInvoices, listJobs, saveSettings, saveTenant,
+} from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useI18n } from '../lib/i18n'
+import { useI18n, type TKey } from '../lib/i18n'
+import { sendEmail, type EmailType } from '../lib/email'
 import type { Lang, SettingsDraft } from '../lib/types'
 import {
-  Button, Card, ErrorNote, LangSwitch, Loading, PageHeader, TextAreaField, TextField,
+  Button, Card, ErrorNote, LangSwitch, Loading, PageHeader, SelectField, TextAreaField, TextField,
 } from '../components/ui'
+
+/**
+ * Fires any customer-facing template at an address you type, in either
+ * language, using the first customer, invoice, and job on the books. This is how
+ * you check a Resend setup without emailing a real client.
+ */
+const TEST_TEMPLATES: { type: EmailType; label: TKey; needs: 'invoice' | 'customer' | 'job' }[] = [
+  { type: 'invoice_new',      label: 'set.testInvoiceNew', needs: 'invoice' },
+  { type: 'invoice_reminder', label: 'set.testReminder',   needs: 'invoice' },
+  { type: 'invoice_receipt',  label: 'set.testReceipt',    needs: 'invoice' },
+  { type: 'quote',            label: 'set.testQuote',      needs: 'job' },
+  { type: 'win_back',         label: 'set.testWinBack',    needs: 'customer' },
+]
+
+function TestEmailPanel({ tenantId }: { tenantId: string }) {
+  const { t, lang } = useI18n()
+  const [to, setTo]       = useState('')
+  const [sendLang, setSendLang] = useState<Lang>(lang)
+  const [busy, setBusy]   = useState<EmailType | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const [ids, setIds] = useState<{ invoice?: string; customer?: string; job?: string }>({})
+
+  useEffect(() => {
+    void (async () => {
+      const [invoices, customers, jobs] = await Promise.all([
+        listInvoices(tenantId), listCustomers(tenantId), listJobs(tenantId),
+      ])
+      setIds({ invoice: invoices[0]?.id, customer: customers[0]?.id, job: jobs[0]?.id })
+    })()
+  }, [tenantId])
+
+  async function send(entry: typeof TEST_TEMPLATES[number]) {
+    if (!to.trim()) { setResult({ ok: false, text: t('set.testNoEmail') }); return }
+    const id = ids[entry.needs]
+    if (!id) { setResult({ ok: false, text: t('set.testNeedsData') }); return }
+
+    setBusy(entry.type)
+    setResult(null)
+    const res = await sendEmail({
+      type: entry.type,
+      tenantId,
+      lang: sendLang,
+      recipientEmail: to.trim(),
+      ...(entry.needs === 'invoice'  ? { invoiceId: id }  : {}),
+      ...(entry.needs === 'customer' ? { customerId: id } : {}),
+      ...(entry.needs === 'job'      ? { jobId: id }      : {}),
+    })
+    setResult(
+      res.ok
+        ? { ok: true, text: res.simulated ? t('set.testSimulated') : t('set.testSent', { email: to.trim() }) }
+        : { ok: false, text: t('set.testFailed', { error: res.error ?? '' }) },
+    )
+    setBusy(null)
+  }
+
+  return (
+    <Card className="p-5">
+      <h2 className="mb-1 text-sm font-semibold text-slate-800">{t('set.testSection')}</h2>
+      <p className="mb-4 text-xs text-slate-500">{t('set.testNote')}</p>
+
+      <div className="flex flex-col gap-3.5">
+        <TextField
+          label={t('set.testEmail')} type="email" value={to}
+          onChange={e => setTo(e.target.value)} placeholder="you@example.com"
+        />
+        <SelectField label={t('set.testLang')} value={sendLang} onChange={e => setSendLang(e.target.value as Lang)}>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+        </SelectField>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {TEST_TEMPLATES.map(entry => (
+          <Button
+            key={entry.type} size="sm" variant="secondary"
+            onClick={() => void send(entry)}
+            disabled={busy !== null || !ids[entry.needs]}
+          >
+            {busy === entry.type ? t('set.testSending') : t(entry.label)}
+          </Button>
+        ))}
+      </div>
+
+      {result && (
+        <p className={`mt-3 text-sm ${result.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+          {result.text}
+        </p>
+      )}
+    </Card>
+  )
+}
 
 const EMPTY: SettingsDraft = {
   zelle_contact: '', bank_name: '', bank_routing: '', bank_account: '',
@@ -166,10 +260,14 @@ export default function Settings() {
           </Card>
         </form>
 
-        <Card className="h-fit p-5">
-          <h2 className="mb-4 text-sm font-semibold text-slate-800">{t('set.previewTitle')}</h2>
-          <PaymentPreview d={draft} />
-        </Card>
+        <div className="flex flex-col gap-6">
+          <Card className="h-fit p-5">
+            <h2 className="mb-4 text-sm font-semibold text-slate-800">{t('set.previewTitle')}</h2>
+            <PaymentPreview d={draft} />
+          </Card>
+
+          {tenantId && <TestEmailPanel tenantId={tenantId} />}
+        </div>
       </div>
     </>
   )

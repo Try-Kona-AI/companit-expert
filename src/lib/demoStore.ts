@@ -99,7 +99,7 @@ function seed(): Snapshot {
     tenant: {
       id: tenantId,
       name: 'Companit Expert',
-      owner_name: 'Mark',
+      owner_name: 'Yan',
       default_language: 'en',
       created_at: stamp(-365),
     },
