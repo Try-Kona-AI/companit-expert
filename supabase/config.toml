@@ -1,0 +1,14 @@
+# Deploy-time settings for the Kona AI project. project_id is a local label only;
+# the real target is always passed with --project-ref.
+project_id = "companit-expert"
+
+[functions.send-email]
+verify_jwt = true
+
+# Called from the public payment page, which has no session.
+[functions.stripe-checkout]
+verify_jwt = false
+
+# Called by Stripe.
+[functions.stripe-webhook]
+verify_jwt = false
