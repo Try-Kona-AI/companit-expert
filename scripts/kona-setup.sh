@@ -30,12 +30,37 @@ for cmd in git gh supabase curl python3 npx; do
   command -v "$cmd" >/dev/null 2>&1 || die "$cmd is not on PATH"
 done
 
-[ -f "$ENV_FILE" ] || die "No .env.kona. Run: cp .env.kona.example .env.kona && chmod 600 .env.kona, then fill in the three tokens."
-set -a; . "$ENV_FILE"; set +a
+[ -f "$ENV_FILE" ] || die "No .env.kona. Run: cp .env.kona.example .env.kona && chmod 600 .env.kona, then fill in the tokens."
+
+# Deliberately not `source`: the file is hand-edited, so anything that is not a
+# clean KEY=VALUE line (a note to self, a password with spaces in the label) is
+# skipped instead of being run as a command.
+load_env() {
+  local line key val
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    case "$line" in \#*|'') continue ;; esac
+    line="${line#export }"
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+      val="${val#"${val%%[![:space:]]*}"}"
+      case "$val" in
+        \"*\") val="${val#\"}"; val="${val%\"}" ;;
+        \'*\') val="${val#\'}"; val="${val%\'}" ;;
+      esac
+      export "$key=$val"
+    fi
+  done < "$ENV_FILE"
+}
+load_env
 
 [ -n "${GH_TOKEN:-}" ]               || die "GH_TOKEN missing from .env.kona"
 [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]  || die "SUPABASE_ACCESS_TOKEN missing from .env.kona"
-[ -n "${VERCEL_TOKEN:-}" ]           || die "VERCEL_TOKEN missing from .env.kona"
+
+# Vercel is optional: leave VERCEL_TOKEN blank to import the repo in the
+# dashboard instead, and this run skips every Vercel step.
+SKIP_VERCEL=0
+[ -n "${VERCEL_TOKEN:-}" ] || { SKIP_VERCEL=1; warn "No VERCEL_TOKEN. Skipping the Vercel steps; import the repo in the dashboard instead."; }
 
 # Writes a derived value back into .env.kona so re-runs pick it up.
 save_env() {
@@ -97,7 +122,7 @@ bold "Supabase project: $PROJECT"
 
 find_ref() {
   supabase projects list -o json 2>/dev/null | jq_py "
-m=[p for p in d if p.get('name')=='$PROJECT']
+m=[p for p in d if str(p.get('name','')).lower()=='$PROJECT'.lower()]
 print(m[0].get('id') or m[0].get('ref','') if m else '')
 " 2>/dev/null || true
 }
@@ -129,8 +154,11 @@ for o in d: print('   ', o['id'], o.get('name',''))
     save_env KONA_SUPABASE_ORG "$ORG"
   fi
 
-  printf '    New Postgres password (save it in your password manager): '
-  read -rs DB_PASSWORD; printf '\n'
+  DB_PASSWORD="${KONA_DB_PASSWORD:-}"
+  if [ -z "$DB_PASSWORD" ]; then
+    printf '    New Postgres password (save it in your password manager): '
+    read -rs DB_PASSWORD; printf '\n'
+  fi
   [ -n "$DB_PASSWORD" ] || die "empty password"
 
   info "creating project in $REGION"
@@ -156,6 +184,9 @@ for _ in $(seq 1 60); do
 done
 
 if [ -z "${DB_PASSWORD:-}" ]; then
+  DB_PASSWORD="${KONA_DB_PASSWORD:-}"
+fi
+if [ -z "$DB_PASSWORD" ]; then
   printf '    Postgres password for %s: ' "$REF"
   read -rs DB_PASSWORD; printf '\n'
 fi
@@ -177,6 +208,12 @@ printf 'VITE_SUPABASE_URL=https://%s.supabase.co\nVITE_SUPABASE_PUBLISHABLE_KEY=
 info "wrote .env.local (npm run dev now hits the live database)"
 
 # ------------------------------------------------------------------ vercel ---
+PROD_URL=""
+if [ "$SKIP_VERCEL" = "1" ]; then
+  PROD_URL="${KONA_APP_URL:-https://$PROJECT.vercel.app}"
+  bold "Vercel: skipped"
+  info "import $REPO in the Kona team, then set APP_URL to the real domain"
+else
 bold "Vercel"
 vc() { npx --yes vercel@latest "$@" --token "$VERCEL_TOKEN" --scope "$SCOPE"; }
 
@@ -223,6 +260,7 @@ if [ -z "$PROD_URL" ]; then
   PROD_URL="https://$PROJECT.vercel.app"
 fi
 info "$PROD_URL"
+fi
 
 # --------------------------------------------------------- secrets + email ---
 bold "Supabase secrets and the bilingual email function"
