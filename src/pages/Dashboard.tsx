@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listCustomers, listInvoices, getTenant } from '../lib/api'
+import { listCustomers, listInvoices, listLeads, getTenant } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useI18n } from '../lib/i18n'
-import type { Customer, Invoice } from '../lib/types'
+import { useI18n, type TKey } from '../lib/i18n'
+import type { Customer, Invoice, Lead } from '../lib/types'
+import { LEAD_STAGES } from '../lib/types'
 import { daysAgo, money, shortDate } from '../lib/format'
 import { Badge, Card, ErrorNote, Loading, PageHeader } from '../components/ui'
 
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const { t, locale } = useI18n()
   const [invoices, setInvoices]   = useState<Invoice[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [leads, setLeads]         = useState<Lead[]>([])
   const [owner, setOwner]         = useState('')
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
@@ -35,11 +37,12 @@ export default function Dashboard() {
     if (!tenantId) { setLoading(false); return }
     void (async () => {
       try {
-        const [inv, cust, tenant] = await Promise.all([
-          listInvoices(tenantId), listCustomers(tenantId), getTenant(tenantId),
+        const [inv, cust, tenant, lds] = await Promise.all([
+          listInvoices(tenantId), listCustomers(tenantId), getTenant(tenantId), listLeads(tenantId),
         ])
         setInvoices(inv)
         setCustomers(cust)
+        setLeads(lds)
         setOwner(tenant?.owner_name ?? tenant?.name ?? '')
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
@@ -75,9 +78,61 @@ export default function Dashboard() {
     .sort((a, b) => (b.paid_date ?? '').localeCompare(a.paid_date ?? ''))
     .slice(0, 4)
 
+  const thisMonth     = new Date().toISOString().slice(0, 7)
+  const newLeads      = leads.filter(l => l.created_at.slice(0, 7) === thisMonth).length
+  const pipeline      = LEAD_STAGES.map(stage => ({ stage, count: leads.filter(l => l.status === stage).length }))
+  const openLeadValue = leads.filter(l => l.status !== 'won' && l.status !== 'lost').reduce((s, l) => s + Number(l.est_value || 0), 0)
+  const leadSourceMap = new Map<string, number>()
+  leads.filter(l => l.created_at.slice(0, 7) === thisMonth).forEach(l => leadSourceMap.set(l.source, (leadSourceMap.get(l.source) ?? 0) + 1))
+  const leadSources   = [...leadSourceMap.entries()].sort((a, b) => b[1] - a[1])
+  const leadSourceMax = leadSources.length ? leadSources[0][1] : 1
+
   return (
     <>
       <PageHeader title={t('dash.greeting', { name: owner })} subtitle={t('dash.subtitle')} />
+
+      {leads.length > 0 && (
+        <Card className="mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">{t('dash.pipeline')}</h2>
+              <p className="text-xs text-slate-500">
+                {t('lead.pipelineValue', { amount: money(openLeadValue) })} · {t('dash.newLeads')}: {newLeads} {t('dash.newLeadsSub')}
+              </p>
+            </div>
+            <Link to="/leads" className="shrink-0 text-xs font-medium text-blue-600 hover:underline">{t('dash.pipelineOpen')}</Link>
+          </div>
+          <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-5">
+            {pipeline.map(col => (
+              <Link key={col.stage} to="/leads" className="rounded-lg border border-slate-200 p-3 transition-colors hover:border-blue-300">
+                <div className="text-2xl font-semibold text-slate-900">{col.count}</div>
+                <div className="mt-1"><Badge status={col.stage} kind="lead" /></div>
+              </Link>
+            ))}
+          </div>
+          {leadSources.length > 0 && (
+            <div className="border-t border-slate-100 px-5 py-4">
+              <div className="mb-2 text-xs font-medium text-slate-500">{t('dash.leadSources')}</div>
+              <div className="grid gap-2.5 sm:grid-cols-3">
+                {leadSources.slice(0, 3).map(([src, n]) => (
+                  <div key={src}>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="truncate text-slate-600">{t(`leadsrc.${src}` as TKey)}</span>
+                      <span className="font-semibold text-slate-800">{n}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-blue-500" style={{ width: `${(n / leadSourceMax) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500">
+            <span className="font-medium text-blue-700">{t('dash.leadAutoLabel')}:</span> {t('dash.leadAuto')}
+          </div>
+        </Card>
+      )}
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label={t('dash.owed')} value={money(owed)} sub={t('dash.owedSub', { n: outstanding.length })} />

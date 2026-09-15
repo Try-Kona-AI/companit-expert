@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Leads from './pages/Leads'
 import Invoices from './pages/Invoices'
 import Customers from './pages/Customers'
 import Winback from './pages/Winback'
@@ -21,6 +22,7 @@ export default function App() {
       <Route path="/pay/success" element={<PaySuccess />} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
+        <Route path="leads"     element={<Leads />} />
         <Route path="invoices"  element={<Invoices />} />
         <Route path="customers" element={<Customers />} />
         <Route path="winback"   element={<Winback />} />

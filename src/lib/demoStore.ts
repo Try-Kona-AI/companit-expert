@@ -1,4 +1,4 @@
-import type { Customer, Invoice, Job, SettingsDraft, Tenant } from './types'
+import type { Customer, Invoice, Job, Lead, SettingsDraft, Tenant } from './types'
 
 /**
  * Local fallback store. Used only when Supabase env vars are absent so the app
@@ -13,6 +13,7 @@ interface Snapshot {
   customers: Customer[]
   invoices: Invoice[]
   jobs: Job[]
+  leads: Lead[]
   email: string | null
 }
 
@@ -95,6 +96,27 @@ function seed(): Snapshot {
     job('j5', 'c1', 'Lobby renovation, phase 2', 'Finish carpentry, paint, fixtures', 'done', 14800, -38),
   ]
 
+  const lead = (
+    id: string, name: string, phone: string, service: string,
+    source: Lead['source'], status: Lead['status'], est_value: number,
+    address: string, createdOffset: number,
+  ): Lead => ({
+    id, tenant_id: tenantId, name, phone, email: null, address,
+    service, source, status, est_value, notes: null,
+    created_at: stamp(createdOffset),
+  })
+
+  const leads: Lead[] = [
+    lead('l1', 'Maria Lopez',         '347-555-0110', 'Apartment turnover, 2BR', 'google_lsa',    'new',        1800, 'Jersey City, NJ', -1),
+    lead('l2', 'Kevin Brenner',       '201-555-0133', 'Drywall repair + paint',  'facebook',      'new',         950, 'Hoboken, NJ',     -2),
+    lead('l3', 'Sunrise Property Mgmt','718-555-0144','3-unit turnover',          'pm_outreach',   'contacted',  5400, 'Newark, NJ',      -4),
+    lead('l4', 'Dana Whitfield',      '646-555-0155', 'Kitchen refresh',         'google_search', 'contacted',  6500, 'Weehawken, NJ',   -5),
+    lead('l5', 'Alex Romano',         '917-555-0166', 'Bathroom tile',           'nextdoor',      'quoted',     2200, 'Union City, NJ',  -7),
+    lead('l6', 'Coastline Realty',    '201-555-0177', 'Recurring turnovers',     'referral',      'quoted',     4800, 'Bayonne, NJ',     -8),
+    lead('l7', 'Priya Nair',          '862-555-0188', 'Office repaint',          'google_lsa',    'won',        3100, 'Jersey City, NJ', -10),
+    lead('l8', 'Marcus Webb',         '551-555-0199', 'Faucet + fixtures',       'website',       'lost',        420, 'Hoboken, NJ',     -13),
+  ]
+
   return {
     tenant: {
       id: tenantId,
@@ -116,6 +138,7 @@ function seed(): Snapshot {
     customers,
     invoices,
     jobs,
+    leads,
     email: null,
   }
 }

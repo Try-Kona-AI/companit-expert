@@ -1,7 +1,7 @@
 import { LIVE, db } from './supabase'
 import * as demo from './demoStore'
 import type {
-  Customer, Invoice, Job, Lang, SettingsDraft, Tenant,
+  Customer, Invoice, Job, Lead, Lang, SettingsDraft, Tenant,
 } from './types'
 
 export { LIVE }
@@ -310,6 +310,59 @@ export async function completeJobToInvoice(tenantId: string, job: Job): Promise<
   }).select()
   if (error) throw new Error(error.message)
   if (!data?.length) throw new Error('Invoice insert returned no rows')
+}
+
+// ------------------------------------------------------------------ leads ---
+export async function listLeads(tenantId: string): Promise<Lead[]> {
+  if (!LIVE) {
+    return [...demo.snapshot().leads].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+  const { data, error } = await db()
+    .from('leads').select('*').eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return data as Lead[]
+}
+
+export type LeadInput = Pick<Lead,
+  'name' | 'phone' | 'email' | 'address' | 'service' | 'source' | 'status' | 'est_value' | 'notes'>
+
+export async function saveLead(
+  tenantId: string, input: LeadInput, id?: string,
+): Promise<void> {
+  if (!LIVE) {
+    demo.mutate(s => {
+      if (id) s.leads = s.leads.map(l => (l.id === id ? { ...l, ...input } : l))
+      else s.leads.unshift({
+        ...input, id: demo.uid(), tenant_id: tenantId,
+        created_at: new Date().toISOString(),
+      })
+    })
+    return
+  }
+  const payload = { ...input, tenant_id: tenantId }
+  const { error } = id
+    ? await db().from('leads').update(payload).eq('id', id)
+    : await db().from('leads').insert(payload)
+  if (error) throw new Error(error.message)
+}
+
+export async function patchLead(id: string, patch: Partial<Lead>): Promise<void> {
+  if (!LIVE) {
+    demo.mutate(s => { s.leads = s.leads.map(l => (l.id === id ? { ...l, ...patch } : l)) })
+    return
+  }
+  const { error } = await db().from('leads').update(patch).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteLead(id: string): Promise<void> {
+  if (!LIVE) {
+    demo.mutate(s => { s.leads = s.leads.filter(l => l.id !== id) })
+    return
+  }
+  const { error } = await db().from('leads').delete().eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 // --------------------------------------------------------------- settings ---

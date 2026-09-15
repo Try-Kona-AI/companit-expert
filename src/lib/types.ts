@@ -59,6 +59,33 @@ export interface Job {
   customer?: Pick<Customer, 'id' | 'name'>
 }
 
+export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'won' | 'lost'
+export type LeadSource =
+  | 'google_lsa' | 'google_search' | 'facebook' | 'nextdoor'
+  | 'referral' | 'pm_outreach' | 'website' | 'other'
+
+export const LEAD_STAGES: LeadStatus[] = ['new', 'contacted', 'quoted', 'won', 'lost']
+export const LEAD_SOURCES: LeadSource[] = [
+  'google_lsa', 'google_search', 'facebook', 'nextdoor',
+  'referral', 'pm_outreach', 'website', 'other',
+]
+
+export interface Lead {
+  id: string
+  tenant_id: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  /** What the customer needs, in their words */
+  service: string | null
+  source: LeadSource
+  status: LeadStatus
+  est_value: number
+  notes: string | null
+  created_at: string
+}
+
 export interface TenantSettings {
   id: string
   tenant_id: string

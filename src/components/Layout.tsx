@@ -7,6 +7,7 @@ import { LangSwitch } from './ui'
 
 const nav: { to: string; key: TKey; end?: boolean }[] = [
   { to: '/',          key: 'nav.dashboard', end: true },
+  { to: '/leads',     key: 'nav.leads' },
   { to: '/invoices',  key: 'nav.invoices' },
   { to: '/customers', key: 'nav.customers' },
   { to: '/winback',   key: 'nav.winback' },

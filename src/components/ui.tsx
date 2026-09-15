@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useI18n, type TKey } from '../lib/i18n'
-import type { CustomerStatus, InvoiceStatus, JobStatus } from '../lib/types'
+import type { CustomerStatus, InvoiceStatus, JobStatus, LeadStatus } from '../lib/types'
 
 // ---- Modal ----------------------------------------------------------------
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -132,9 +132,20 @@ const jobColors: Record<JobStatus, string> = {
   done: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
 }
 
-export function Badge({ status, kind }: { status: string; kind: 'invoice' | 'customer' | 'job' }) {
+const leadColors: Record<LeadStatus, string> = {
+  new: 'bg-blue-50 text-blue-700 ring-blue-200',
+  contacted: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  quoted: 'bg-amber-50 text-amber-700 ring-amber-200',
+  won: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  lost: 'bg-slate-100 text-slate-500 ring-slate-200',
+}
+
+export function Badge({ status, kind }: { status: string; kind: 'invoice' | 'customer' | 'job' | 'lead' }) {
   const { t } = useI18n()
-  const map = kind === 'invoice' ? invoiceColors : kind === 'customer' ? customerColors : jobColors
+  const map = kind === 'invoice' ? invoiceColors
+    : kind === 'customer' ? customerColors
+    : kind === 'lead' ? leadColors
+    : jobColors
   const cls = (map as Record<string, string>)[status] ?? 'bg-slate-100 text-slate-600 ring-slate-200'
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${cls}`}>
