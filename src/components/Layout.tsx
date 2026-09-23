@@ -12,7 +12,9 @@ const nav: { to: string; key: TKey; end?: boolean }[] = [
   { to: '/customers', key: 'nav.customers' },
   { to: '/winback',   key: 'nav.winback' },
   { to: '/jobs',      key: 'nav.jobs' },
-  { to: '/translate', key: 'nav.translate' },
+  // Translator hidden for managed clients: Kona handles English comms and the UI
+  // already toggles RU/EN. Route, page, and edge function stay for self-run clients.
+  // { to: '/translate', key: 'nav.translate' },
 ]
 
 const bottomNav: { to: string; key: TKey }[] = [
