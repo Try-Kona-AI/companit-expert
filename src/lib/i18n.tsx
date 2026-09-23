@@ -358,6 +358,31 @@ const en = {
   'dash.noLeadsMonth': 'No new leads this month yet.',
   'dash.leadAutoLabel': 'Automations',
   'dash.leadAuto': 'Every new lead gets an instant reply, then an automatic follow-up.',
+
+  // ---- translator ---------------------------------------------------------
+  'nav.translate': 'Translator',
+  'translate.title': 'Translator',
+  'translate.subtitle': 'Russian and English, instantly — for notes, customer messages, and quotes.',
+  'translate.direction': 'Direction',
+  'translate.auto': 'Auto',
+  'translate.toEn': 'To English',
+  'translate.toRu': 'To Russian',
+  'translate.sourceLabel': 'Your text',
+  'translate.resultLabel': 'Translation',
+  'translate.placeholder': 'Type or paste text in Russian or English…',
+  'translate.resultPlaceholder': 'The translation appears here.',
+  'translate.button': 'Translate',
+  'translate.translating': 'Translating…',
+  'translate.copy': 'Copy',
+  'translate.copied': 'Copied',
+  'translate.clear': 'Clear',
+  'translate.empty': 'Type something to translate.',
+  'translate.error': 'Could not translate right now. Try again in a moment.',
+  'translate.detected': 'Detected: {lang}',
+  'translate.langEn': 'English',
+  'translate.langRu': 'Russian',
+  'translate.demoNote': 'Live translation runs on your real account. This is the demo.',
+  'translate.hint': 'Tip: paste a customer’s message to read it in your language, or write your reply and send it in theirs.',
 } as const
 
 export type TKey = keyof typeof en
@@ -698,6 +723,31 @@ const ru: Record<TKey, string> = {
   'dash.noLeadsMonth': 'Новых заявок в этом месяце пока нет.',
   'dash.leadAutoLabel': 'Автоматизация',
   'dash.leadAuto': 'Каждая новая заявка получает мгновенный ответ и автоматическое напоминание.',
+
+  // ---- translator ---------------------------------------------------------
+  'nav.translate': 'Переводчик',
+  'translate.title': 'Переводчик',
+  'translate.subtitle': 'Русский и английский мгновенно — для заметок, сообщений клиентам и смет.',
+  'translate.direction': 'Направление',
+  'translate.auto': 'Авто',
+  'translate.toEn': 'На английский',
+  'translate.toRu': 'На русский',
+  'translate.sourceLabel': 'Ваш текст',
+  'translate.resultLabel': 'Перевод',
+  'translate.placeholder': 'Введите или вставьте текст на русском или английском…',
+  'translate.resultPlaceholder': 'Здесь появится перевод.',
+  'translate.button': 'Перевести',
+  'translate.translating': 'Перевод…',
+  'translate.copy': 'Копировать',
+  'translate.copied': 'Скопировано',
+  'translate.clear': 'Очистить',
+  'translate.empty': 'Введите текст для перевода.',
+  'translate.error': 'Сейчас не удалось перевести. Попробуйте ещё раз через минуту.',
+  'translate.detected': 'Определено: {lang}',
+  'translate.langEn': 'Английский',
+  'translate.langRu': 'Русский',
+  'translate.demoNote': 'Живой перевод работает в вашем аккаунте. Это демоверсия.',
+  'translate.hint': 'Совет: вставьте сообщение клиента, чтобы прочитать его на своём языке, или напишите ответ — и отправьте на языке клиента.',
 }
 
 const dicts: Record<Lang, Record<TKey, string>> = { en, ru }

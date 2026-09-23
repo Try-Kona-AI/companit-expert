@@ -12,6 +12,7 @@ const nav: { to: string; key: TKey; end?: boolean }[] = [
   { to: '/customers', key: 'nav.customers' },
   { to: '/winback',   key: 'nav.winback' },
   { to: '/jobs',      key: 'nav.jobs' },
+  { to: '/translate', key: 'nav.translate' },
 ]
 
 const bottomNav: { to: string; key: TKey }[] = [

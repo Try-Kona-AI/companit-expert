@@ -5,6 +5,10 @@ project_id = "companit-expert"
 [functions.send-email]
 verify_jwt = true
 
+# RU <-> EN translator, called by the signed-in owner from the app.
+[functions.translate]
+verify_jwt = true
+
 # Called from the public payment page, which has no session.
 [functions.stripe-checkout]
 verify_jwt = false
