@@ -48,9 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!LIVE) {
+      // Demo build (no Supabase env): auto-sign-in so a shared link opens
+      // straight into the app with sample data, with no login step.
       let saved: string | null = null
       try { saved = localStorage.getItem(DEMO_SESSION_KEY) } catch { /* ignore */ }
-      if (saved) { setEmail(saved); setTenantId(DEMO_TENANT_ID) }
+      setEmail(saved ?? 'demo@companitexpert.com')
+      setTenantId(DEMO_TENANT_ID)
       setLoading(false)
       return
     }
