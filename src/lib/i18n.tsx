@@ -145,6 +145,16 @@ const en = {
     "Hi {first}, it's {owner} at Companit Expert. I was going through my client list and realized it's been a while since we last worked together. Wanted to reach out and see how things are going on your end. Would you be open to a quick 20-minute catch-up in the next couple of weeks?",
   'win.msgDue':
     '{owner} at Companit Expert here, {first}. I was reviewing my calendar and wanted to reach out proactively. It is about time for us to connect, make sure everything is on track, and talk through what the next few months look like for you. I have availability this month if you would like to find a time.',
+  'win.textWinBack':
+    "Hi {first}, it's {owner} from Companit Expert. It's been a while since I worked on your place. I've got some openings coming up, happy to help with any painting, repairs, or small fixes you need. Just text me back here.",
+  'win.textDue':
+    "Hi {first}, it's {owner} from Companit Expert. Checking in, it might be about time for a touch-up or a few fixes around the place. I've got availability this month if you'd like to set something up.",
+  'win.text': 'Text',
+  'win.copy': 'Copy message',
+  'win.copied': 'Copied ✓',
+  'win.markDone': 'Mark reached out',
+  'win.reached': 'Reached out ✓',
+  'win.noContact': 'No phone or email on file.',
 
   // ---- modals -------------------------------------------------------------
   'm.newCustomer': 'New customer',
@@ -516,6 +526,16 @@ const ru: Record<TKey, string> = {
     'Здравствуйте, {first}! Это {owner} из Companit Expert. Просматривал список клиентов и увидел, что мы давно не работали вместе. Решил написать и узнать, как у вас дела. Найдётся 20 минут на короткий звонок в ближайшие пару недель?',
   'win.msgDue':
     'Здравствуйте, {first}! На связи {owner} из Companit Expert. Просматривал график и решил написать заранее: пора нам созвониться, проверить, что всё в порядке, и обсудить планы на ближайшие месяцы. В этом месяце есть свободное время, если вам удобно.',
+  'win.textWinBack':
+    'Здравствуйте, {first}! Это {owner} из Companit Expert. Давно не виделись с нашей последней работы. Сейчас есть свободные окна, с радостью помогу с покраской, ремонтом или мелкими работами. Просто напишите мне в ответ.',
+  'win.textDue':
+    'Здравствуйте, {first}! Это {owner} из Companit Expert. Решил узнать, как у вас дела, возможно, пора что-то подкрасить или подправить. В этом месяце есть свободное время, если захотите договориться.',
+  'win.text': 'Написать',
+  'win.copy': 'Копировать',
+  'win.copied': 'Скопировано ✓',
+  'win.markDone': 'Отметить, что связались',
+  'win.reached': 'Связались ✓',
+  'win.noContact': 'Нет телефона или email.',
 
   'm.newCustomer': 'Новый клиент',
   'm.editCustomer': 'Изменить клиента',
