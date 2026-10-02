@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Leads from './pages/Leads'
 import Translate from './pages/Translate'
+import Prospecting from './pages/Prospecting'
 import Invoices from './pages/Invoices'
 import Customers from './pages/Customers'
 import Winback from './pages/Winback'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="winback"   element={<Winback />} />
         <Route path="jobs"      element={<Jobs />} />
         <Route path="translate" element={<Translate />} />
+        <Route path="prospecting" element={<Prospecting />} />
         <Route path="settings"  element={<Settings />} />
         <Route path="guide"     element={<Guide />} />
       </Route>

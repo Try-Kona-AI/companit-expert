@@ -9,6 +9,10 @@ verify_jwt = true
 [functions.translate]
 verify_jwt = true
 
+# Apollo prospecting (property managers -> leads). Signed-in owner only.
+[functions.apollo-search]
+verify_jwt = true
+
 # Called from the public payment page, which has no session.
 [functions.stripe-checkout]
 verify_jwt = false

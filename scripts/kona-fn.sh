@@ -30,6 +30,10 @@ set_secret() {
 # Translator needs Anthropic; invoice/reminder emails need Resend.
 set_secret ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
 set_secret RESEND_API_KEY "${RESEND_API_KEY:-}"
+# Apollo prospecting key, added once the subscription is purchased.
+set_secret APOLLO_API_KEY "${APOLLO_API_KEY:-}"
+# Test-safety: when EMAIL_TEST_TO is passed, all emails redirect to it.
+set_secret EMAIL_TEST_TO "${EMAIL_TEST_TO:-}"
 
 echo "==> deploy function '$FN' -> $KONA_SUPABASE_REF"
 supabase functions deploy "$FN" --project-ref "$KONA_SUPABASE_REF"
