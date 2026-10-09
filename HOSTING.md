@@ -21,7 +21,7 @@ Never run these while working on this project: `gh auth login`, `gh auth switch`
 Fill in one file, run one command:
 
 ```bash
-cd ~/Projects/companit-expert
+cd ~/Personal/companit-expert
 cp .env.kona.example .env.kona && chmod 600 .env.kona && open -t .env.kona
 ```
 
@@ -50,7 +50,7 @@ doing out of order.
 ### 0. Credentials, once
 
 ```bash
-cd ~/Projects/companit-expert
+cd ~/Personal/companit-expert
 cp .env.kona.example .env.kona
 $EDITOR .env.kona          # paste the three Kona tokens
 chmod 600 .env.kona
@@ -59,7 +59,7 @@ chmod 600 .env.kona
 Load them into the shell (repeat in any new terminal tab):
 
 ```bash
-cd ~/Projects/companit-expert
+cd ~/Personal/companit-expert
 set -a; source .env.kona; set +a
 ```
 

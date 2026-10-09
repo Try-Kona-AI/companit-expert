@@ -23,6 +23,8 @@ export default function LeadModal({ onClose, onSaved, lead }: {
   const [status, setStatus]     = useState<Lead['status']>(lead?.status ?? 'new')
   const [estValue, setEstValue] = useState(lead?.est_value ? String(lead.est_value) : '')
   const [notes, setNotes]       = useState(lead?.notes ?? '')
+  const [company, setCompany]   = useState(lead?.company ?? '')
+  const [building, setBuilding] = useState(lead?.building ?? '')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -33,6 +35,7 @@ export default function LeadModal({ onClose, onSaved, lead }: {
         name, phone: phone || null, email: email || null, address: address || null,
         service: service || null, source, status,
         est_value: parseFloat(estValue) || 0, notes: notes || null,
+        company: company || null, building: building || null,
       }, lead?.id)
       onSaved(); onClose()
     } catch (err) {
@@ -51,6 +54,10 @@ export default function LeadModal({ onClose, onSaved, lead }: {
           <TextField label={t('f.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('f.emailPh')} />
         </div>
         <TextField label={t('f.address')} value={address} onChange={e => setAddress(e.target.value)} placeholder={t('f.addressPh')} />
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label={t('f.company')} value={company} onChange={e => setCompany(e.target.value)} />
+          <TextField label={t('f.building')} value={building} onChange={e => setBuilding(e.target.value)} placeholder={t('f.buildingPh')} />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <SelectField label={t('f.source')} value={source} onChange={e => setSource(e.target.value as Lead['source'])}>
             {LEAD_SOURCES.map(s => <option key={s} value={s}>{t(`leadsrc.${s}` as TKey)}</option>)}

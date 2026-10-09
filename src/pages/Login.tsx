@@ -100,7 +100,8 @@ export default function Login() {
             </button>
           </form>
 
-          <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: '#697384' }}>
+          {/* Live workspaces are invite-only: logins are created by Kona, not self-serve. */}
+          {!live && <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: '#697384' }}>
             {mode === 'signin' ? t('login.noAccount') : t('login.haveAccount')}
             <button
               onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setNotice(null) }}
@@ -108,7 +109,7 @@ export default function Login() {
             >
               {mode === 'signin' ? t('login.signUp') : t('login.signIn')}
             </button>
-          </div>
+          </div>}
 
           {!live && (
             <p style={{ marginTop: 14, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>

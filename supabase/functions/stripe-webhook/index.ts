@@ -16,6 +16,8 @@ async function verify(body: string, header: string | null): Promise<boolean> {
   const t = parts.get("t");
   const v1 = parts.get("v1");
   if (!t || !v1) return false;
+  // Reject replays older than 5 minutes.
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
 
   const key = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(WEBHOOK_SECRET),
@@ -23,7 +25,10 @@ async function verify(body: string, header: string | null): Promise<boolean> {
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${t}.${body}`));
   const hex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
-  return hex === v1;
+  if (hex.length !== v1.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ v1.charCodeAt(i);
+  return diff === 0;
 }
 
 Deno.serve(async (req) => {
@@ -35,8 +40,9 @@ Deno.serve(async (req) => {
 
   const event = JSON.parse(body);
   if (event.type === "checkout.session.completed") {
-    const invoiceId = event.data?.object?.metadata?.invoice_id;
-    if (invoiceId) {
+    const session = event.data?.object ?? {};
+    const invoiceId = session.metadata?.invoice_id;
+    if (invoiceId && session.payment_status === "paid") {
       const today = new Date().toISOString().slice(0, 10);
       const { data: inv } = await db
         .from("invoices").select("customer_id").eq("id", invoiceId).single();

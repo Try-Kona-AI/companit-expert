@@ -3,10 +3,15 @@ import { useI18n, type TKey } from '../lib/i18n'
 import type { CustomerStatus, InvoiceStatus, JobStatus, LeadStatus } from '../lib/types'
 
 // ---- Modal ----------------------------------------------------------------
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ title, onClose, children, wide }: {
+  title: string; onClose: () => void; children: ReactNode; wide?: boolean
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+      <div
+        className={`max-h-[92vh] w-full overflow-y-auto rounded-2xl bg-white p-6 shadow-xl ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
@@ -140,11 +145,25 @@ const leadColors: Record<LeadStatus, string> = {
   lost: 'bg-slate-100 text-slate-500 ring-slate-200',
 }
 
-export function Badge({ status, kind }: { status: string; kind: 'invoice' | 'customer' | 'job' | 'lead' }) {
+const outreachColors: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-500 ring-slate-200',
+  active: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  paused: 'bg-amber-50 text-amber-700 ring-amber-200',
+  replied: 'bg-blue-50 text-blue-700 ring-blue-200',
+  completed: 'bg-slate-100 text-slate-600 ring-slate-200',
+  unsubscribed: 'bg-red-50 text-red-700 ring-red-200',
+  bounced: 'bg-red-50 text-red-700 ring-red-200',
+  stopped: 'bg-slate-100 text-slate-500 ring-slate-200',
+}
+
+export function Badge({ status, kind }: {
+  status: string; kind: 'invoice' | 'customer' | 'job' | 'lead' | 'outreach'
+}) {
   const { t } = useI18n()
   const map = kind === 'invoice' ? invoiceColors
     : kind === 'customer' ? customerColors
     : kind === 'lead' ? leadColors
+    : kind === 'outreach' ? outreachColors
     : jobColors
   const cls = (map as Record<string, string>)[status] ?? 'bg-slate-100 text-slate-600 ring-slate-200'
   return (

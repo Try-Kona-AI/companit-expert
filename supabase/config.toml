@@ -20,3 +20,16 @@ verify_jwt = false
 # Called by Stripe.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Sends owner-approved outreach batches. Signed-in workspace member only.
+[functions.send-campaign]
+verify_jwt = true
+
+# Public unsubscribe link inside outreach emails; recipients have no session.
+[functions.outreach-unsubscribe]
+verify_jwt = false
+
+# Daily automatic reminders, called by pg_cron. Guarded by the CRON_SECRET
+# function secret (x-cron-secret header), not a user session.
+[functions.send-reminders]
+verify_jwt = false

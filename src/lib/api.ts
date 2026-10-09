@@ -1,7 +1,8 @@
-import { LIVE, db } from './supabase'
+import { LIVE, callFunction, db } from './supabase'
 import * as demo from './demoStore'
 import type {
-  Customer, Invoice, Job, Lead, Lang, SettingsDraft, Tenant,
+  Campaign, CampaignStep, Customer, Enrollment, EnrollmentStatus, Invoice, Job, Lead, Lang,
+  SettingsDraft, Tenant,
 } from './types'
 
 export { LIVE }
@@ -9,6 +10,9 @@ export { LIVE }
 const today = () => new Date().toISOString().slice(0, 10)
 const plusDays = (n: number) =>
   new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+/** Calendar day in New York, matching the send-campaign function's clock. */
+export const nyDay = (offset = 0) =>
+  new Date(Date.now() + offset * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
 // ---------------------------------------------------------------- tenant ----
 export async function getTenant(tenantId: string): Promise<Tenant | null> {
@@ -326,6 +330,7 @@ export async function listLeads(tenantId: string): Promise<Lead[]> {
 
 export type LeadInput = Pick<Lead,
   'name' | 'phone' | 'email' | 'address' | 'service' | 'source' | 'status' | 'est_value' | 'notes'>
+  & Partial<Pick<Lead, 'company' | 'title' | 'building' | 'external_ref'>>
 
 export async function saveLead(
   tenantId: string, input: LeadInput, id?: string,
@@ -410,3 +415,232 @@ export async function saveSettings(tenantId: string, draft: SettingsDraft): Prom
     .from('tenant_settings').upsert(payload, { onConflict: 'tenant_id' })
   if (error) throw new Error(error.message)
 }
+
+// --------------------------------------------------------------- outreach ---
+/**
+ * Add a prospect from a list source (NYC records, Apollo). De-duplicated on
+ * external_ref so the same firm or owner is never added twice.
+ */
+export async function addProspectLead(
+  tenantId: string, input: LeadInput,
+): Promise<'added' | 'duplicate'> {
+  if (!LIVE) {
+    let result: 'added' | 'duplicate' = 'added'
+    demo.mutate(s => {
+      if (input.external_ref && s.leads.some(l => l.external_ref === input.external_ref)) {
+        result = 'duplicate'; return
+      }
+      s.leads.unshift({
+        company: null, title: null, building: null, external_ref: null,
+        ...input, id: demo.uid(), tenant_id: tenantId, created_at: new Date().toISOString(),
+      })
+    })
+    return result
+  }
+  const { error } = await db().from('leads').insert({ ...input, tenant_id: tenantId })
+  if (error?.code === '23505') return 'duplicate'
+  if (error) throw new Error(error.message)
+  return 'added'
+}
+
+export async function listCampaigns(tenantId: string): Promise<Campaign[]> {
+  if (!LIVE) return [...demo.snapshot().campaigns].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const { data, error } = await db()
+    .from('campaigns').select('*').eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return data as Campaign[]
+}
+
+export async function listSteps(campaignId: string): Promise<CampaignStep[]> {
+  if (!LIVE) {
+    return demo.snapshot().campaignSteps
+      .filter(s => s.campaign_id === campaignId).sort((a, b) => a.step_no - b.step_no)
+  }
+  const { data, error } = await db()
+    .from('campaign_steps').select('*').eq('campaign_id', campaignId).order('step_no')
+  if (error) throw new Error(error.message)
+  return data as CampaignStep[]
+}
+
+export type CampaignInput = Pick<Campaign, 'name' | 'audience' | 'language' | 'daily_cap'>
+export type StepInput = Pick<CampaignStep, 'delay_days' | 'subject' | 'body'>
+
+export async function createCampaign(
+  tenantId: string, input: CampaignInput, steps: StepInput[],
+): Promise<string> {
+  if (!LIVE) {
+    const id = demo.uid()
+    demo.mutate(s => {
+      s.campaigns.unshift({ ...input, id, tenant_id: tenantId, status: 'draft', created_at: new Date().toISOString() })
+    })
+    await saveSteps(tenantId, id, steps)
+    return id
+  }
+  const { data, error } = await db()
+    .from('campaigns').insert({ ...input, tenant_id: tenantId }).select('id').single()
+  if (error) throw new Error(error.message)
+  await saveSteps(tenantId, data.id as string, steps)
+  return data.id as string
+}
+
+export async function patchCampaign(
+  id: string, patch: Partial<Pick<Campaign, 'name' | 'status' | 'daily_cap' | 'language' | 'audience'>>,
+): Promise<void> {
+  if (!LIVE) {
+    demo.mutate(s => { s.campaigns = s.campaigns.map(c => (c.id === id ? { ...c, ...patch } : c)) })
+    return
+  }
+  const { error } = await db().from('campaigns').update(patch).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** Replace a campaign's sequence. Step numbers follow array order. */
+export async function saveSteps(tenantId: string, campaignId: string, steps: StepInput[]): Promise<void> {
+  const rows = steps.map((st, i) => ({
+    tenant_id: tenantId, campaign_id: campaignId, step_no: i + 1,
+    delay_days: Math.max(0, Math.round(Number(st.delay_days) || 0)),
+    subject: st.subject, body: st.body,
+  }))
+  if (!LIVE) {
+    demo.mutate(s => {
+      s.campaignSteps = s.campaignSteps.filter(x => x.campaign_id !== campaignId)
+        .concat(rows.map(r => ({ ...r, id: demo.uid() })))
+    })
+    return
+  }
+  const { error: delErr } = await db().from('campaign_steps').delete().eq('campaign_id', campaignId)
+  if (delErr) throw new Error(delErr.message)
+  if (rows.length) {
+    const { error } = await db().from('campaign_steps').insert(rows)
+    if (error) throw new Error(error.message)
+  }
+}
+
+export async function deleteCampaign(id: string): Promise<void> {
+  if (!LIVE) {
+    demo.mutate(s => {
+      s.campaigns = s.campaigns.filter(c => c.id !== id)
+      s.campaignSteps = s.campaignSteps.filter(x => x.campaign_id !== id)
+      s.enrollments = s.enrollments.filter(e => e.campaign_id !== id)
+    })
+    return
+  }
+  const { error } = await db().from('campaigns').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function listEnrollments(tenantId: string, campaignId?: string): Promise<Enrollment[]> {
+  if (!LIVE) {
+    const s = demo.snapshot()
+    return s.enrollments
+      .filter(e => !campaignId || e.campaign_id === campaignId)
+      .map(e => ({ ...e, lead: s.leads.find(l => l.id === e.lead_id) }))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+  let q = db().from('campaign_enrollments').select('*, lead:leads(*)').eq('tenant_id', tenantId)
+  if (campaignId) q = q.eq('campaign_id', campaignId)
+  const { data, error } = await q.order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return data as Enrollment[]
+}
+
+/**
+ * Enroll leads into a campaign. Skips leads with no email, unsubscribed
+ * leads, suppressed addresses, and anyone already enrolled.
+ */
+export async function enrollLeads(
+  tenantId: string, campaignId: string, leads: Lead[],
+): Promise<number> {
+  const steps = await listSteps(campaignId)
+  const first = steps[0]
+  if (!first) throw new Error('Add at least one email step first')
+  const startOn = nyDay(first.delay_days)
+  const eligible = leads.filter(l => l.email && !l.unsubscribed_at)
+
+  if (!LIVE) {
+    let n = 0
+    demo.mutate(s => {
+      for (const l of eligible) {
+        if (s.suppressions.includes(l.email!.toLowerCase())) continue
+        if (s.enrollments.some(e => e.campaign_id === campaignId && e.lead_id === l.id)) continue
+        s.enrollments.push({
+          id: demo.uid(), tenant_id: tenantId, campaign_id: campaignId, lead_id: l.id,
+          next_step: 1, next_send_on: startOn, status: 'active', last_sent_at: null,
+          created_at: new Date().toISOString(),
+        })
+        n++
+      }
+    })
+    return n
+  }
+  const { data: sup } = await db().from('email_suppressions').select('email').eq('tenant_id', tenantId)
+  const blocked = new Set((sup ?? []).map(r => String(r.email).toLowerCase()))
+  const rows = eligible
+    .filter(l => !blocked.has(l.email!.toLowerCase()))
+    .map(l => ({ tenant_id: tenantId, campaign_id: campaignId, lead_id: l.id, next_send_on: startOn }))
+  if (!rows.length) return 0
+  const { data, error } = await db()
+    .from('campaign_enrollments')
+    .upsert(rows, { onConflict: 'campaign_id,lead_id', ignoreDuplicates: true })
+    .select('id')
+  if (error) throw new Error(error.message)
+  return data?.length ?? 0
+}
+
+export async function setEnrollmentStatus(id: string, status: EnrollmentStatus): Promise<void> {
+  if (!LIVE) {
+    demo.mutate(s => { s.enrollments = s.enrollments.map(e => (e.id === id ? { ...e, status } : e)) })
+    return
+  }
+  const { error } = await db().from('campaign_enrollments').update({ status }).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** Messages already sent today (local day), for the daily cap. */
+export async function sentTodayCount(tenantId: string): Promise<number> {
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
+  if (!LIVE) return demo.snapshot().outreach.filter(m => m.sent_at >= midnight.toISOString()).length
+  const { count, error } = await db()
+    .from('outreach_messages').select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId).gte('sent_at', midnight.toISOString())
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+export interface SendResult { sent: number; skipped: number; testMode: boolean; errors: string[] }
+
+/**
+ * Send the approved emails. Live: the send-campaign edge function renders,
+ * sends, logs and advances each enrollment server-side. Demo: simulated, so
+ * the whole flow is clickable with no email provider.
+ */
+export async function sendOutreach(tenantId: string, enrollmentIds: string[]): Promise<SendResult> {
+  if (!LIVE) {
+    let sent = 0
+    demo.mutate(s => {
+      for (const id of enrollmentIds) {
+        const e = s.enrollments.find(x => x.id === id)
+        const lead = e && s.leads.find(l => l.id === e.lead_id)
+        const step = e && s.campaignSteps.find(x => x.campaign_id === e.campaign_id && x.step_no === e.next_step)
+        if (!e || !lead?.email || !step || e.status !== 'active') continue
+        s.outreach.push({
+          id: demo.uid(), tenant_id: tenantId, campaign_id: e.campaign_id, enrollment_id: e.id, lead_id: lead.id,
+          step_no: step.step_no, to_email: lead.email, subject: step.subject,
+          test_mode: false, sent_at: new Date().toISOString(),
+        })
+        const next = s.campaignSteps.find(x => x.campaign_id === e.campaign_id && x.step_no === e.next_step + 1)
+        e.last_sent_at = new Date().toISOString()
+        if (next) { e.next_step = next.step_no; e.next_send_on = nyDay(next.delay_days) }
+        else e.status = 'completed'
+        if (lead.status === 'new') lead.status = 'contacted'
+        sent++
+      }
+    })
+    return { sent, skipped: enrollmentIds.length - sent, testMode: false, errors: [] }
+  }
+  const d = await callFunction<SendResult & { error?: string }>('send-campaign', { tenantId, enrollmentIds })
+  if (d?.error) throw new Error(d.error)
+  return d
+}
+

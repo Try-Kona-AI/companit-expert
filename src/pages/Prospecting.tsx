@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { supabase, LIVE } from '../lib/supabase'
+import { LIVE, callFunction } from '../lib/supabase'
 import { saveLead } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { Button, Card, EmptyState, PageHeader } from '../components/ui'
+import NycProspector from '../components/NycProspector'
 
 type Prospect = {
   id: string; name: string; title: string; company: string
@@ -17,7 +18,29 @@ const SIZE_RANGES: Record<Size, string[] | undefined> = {
   any: undefined,
 }
 
+type Source = 'nyc' | 'apollo'
+
 export default function Prospecting() {
+  const { t } = useI18n()
+  const [source, setSource] = useState<Source>('nyc')
+  return (
+    <>
+      <PageHeader title={t('prospect.title')} subtitle={t('prospect.subtitle')} />
+      <div className="mb-5 flex gap-1 border-b border-slate-200">
+        {(['nyc', 'apollo'] as Source[]).map(s => (
+          <button key={s} onClick={() => setSource(s)}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              source === s ? 'border-[#0c2340] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            {t(s === 'nyc' ? 'prospect.srcNyc' : 'prospect.srcApollo')}
+          </button>
+        ))}
+      </div>
+      {source === 'nyc' ? <NycProspector /> : <ApolloProspector />}
+    </>
+  )
+}
+
+function ApolloProspector() {
   const { tenantId } = useAuth()
   const { t } = useI18n()
   const [keywords, setKeywords] = useState('property management')
@@ -34,17 +57,13 @@ export default function Prospecting() {
   async function search() {
     setBusy(true); setError(null); setResults(null); setPicked({}); setAddedCount(0); setNeedsKey(false)
     try {
-      if (!LIVE || !supabase) { setNeedsKey(true); return }
-      const { data, error } = await supabase.functions.invoke('apollo-search', {
-        body: {
-          keywords: keywords.trim() || undefined,
-          locations: location.trim() ? [location.trim()] : undefined,
-          sizes: SIZE_RANGES[size],
-          perPage: 25,
-        },
+      if (!LIVE) { setNeedsKey(true); return }
+      const d = await callFunction<{ needsKey?: boolean; people?: Prospect[]; error?: string }>('apollo-search', {
+        keywords: keywords.trim() || undefined,
+        locations: location.trim() ? [location.trim()] : undefined,
+        sizes: SIZE_RANGES[size],
+        perPage: 25,
       })
-      if (error) throw error
-      const d = data as { needsKey?: boolean; people?: Prospect[]; error?: string }
       if (d?.needsKey) { setNeedsKey(true); return }
       if (d?.error) throw new Error(d.error)
       setResults(d.people ?? [])
@@ -69,12 +88,12 @@ export default function Prospecting() {
     let n = 0
     for (const p of results.filter(r => picked[r.id])) {
       let email = p.email, phone = p.phone
-      if (p.locked && supabase && LIVE) {
+      if (p.locked && LIVE) {
         try {
-          const { data } = await supabase.functions.invoke('apollo-search', {
-            body: { action: 'enrich', id: p.id, first_name: p.name.split(' ')[0], last_name: p.name.split(' ').slice(1).join(' '), company: p.company },
+          const data = await callFunction<{ person?: Prospect }>('apollo-search', {
+            action: 'enrich', id: p.id, first_name: p.name.split(' ')[0], last_name: p.name.split(' ').slice(1).join(' '), company: p.company,
           })
-          const r = (data as { person?: Prospect })?.person
+          const r = data?.person
           if (r) { email = r.email ?? email; phone = r.phone ?? phone }
         } catch { /* keep what we have */ }
       }
@@ -101,8 +120,6 @@ export default function Prospecting() {
 
   return (
     <>
-      <PageHeader title={t('prospect.title')} subtitle={t('prospect.subtitle')} />
-
       <Card className="mb-6 p-5">
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
           <label className="block">

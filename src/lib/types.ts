@@ -62,12 +62,12 @@ export interface Job {
 export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'won' | 'lost'
 export type LeadSource =
   | 'google_lsa' | 'google_search' | 'facebook' | 'nextdoor'
-  | 'referral' | 'pm_outreach' | 'website' | 'other'
+  | 'referral' | 'pm_outreach' | 'nyc_records' | 'website' | 'other'
 
 export const LEAD_STAGES: LeadStatus[] = ['new', 'contacted', 'quoted', 'won', 'lost']
 export const LEAD_SOURCES: LeadSource[] = [
   'google_lsa', 'google_search', 'facebook', 'nextdoor',
-  'referral', 'pm_outreach', 'website', 'other',
+  'referral', 'pm_outreach', 'nyc_records', 'website', 'other',
 ]
 
 export interface Lead {
@@ -83,6 +83,13 @@ export interface Lead {
   status: LeadStatus
   est_value: number
   notes: string | null
+  company?: string | null
+  title?: string | null
+  /** One real building they manage or own, for personalization */
+  building?: string | null
+  /** De-dup key from the prospect source (hpd:..., apollo:...) */
+  external_ref?: string | null
+  unsubscribed_at?: string | null
   created_at: string
 }
 
@@ -101,3 +108,57 @@ export interface TenantSettings {
 }
 
 export type SettingsDraft = Omit<TenantSettings, 'id' | 'tenant_id' | 'updated_at'>
+
+// ------------------------------------------------------------- outreach -----
+export type CampaignAudience = 'pm' | 'landlord' | 'any'
+export type CampaignStatus = 'draft' | 'active' | 'paused'
+export type EnrollmentStatus =
+  | 'active' | 'replied' | 'unsubscribed' | 'completed' | 'bounced' | 'stopped'
+
+export interface Campaign {
+  id: string
+  tenant_id: string
+  name: string
+  audience: CampaignAudience
+  language: Lang
+  status: CampaignStatus
+  daily_cap: number
+  created_at: string
+}
+
+export interface CampaignStep {
+  id: string
+  tenant_id: string
+  campaign_id: string
+  step_no: number
+  /** Days after the previous step (step 1: after enrollment) */
+  delay_days: number
+  subject: string
+  body: string
+}
+
+export interface Enrollment {
+  id: string
+  tenant_id: string
+  campaign_id: string
+  lead_id: string
+  next_step: number
+  next_send_on: string
+  status: EnrollmentStatus
+  last_sent_at: string | null
+  created_at: string
+  lead?: Lead
+}
+
+export interface OutreachMessage {
+  id: string
+  tenant_id: string
+  campaign_id: string | null
+  enrollment_id: string | null
+  lead_id: string | null
+  step_no: number
+  to_email: string
+  subject: string
+  test_mode: boolean
+  sent_at: string
+}

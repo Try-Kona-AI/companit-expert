@@ -6,6 +6,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "hello@trykona.ai";
+// Replies from customers go here (the contractor's own inbox), not the send-only address.
+const REPLY_TO = (Deno.env.get("REPLY_TO") ?? "").trim();
 const APP_URL = Deno.env.get("APP_URL") ?? "https://companit-expert.vercel.app";
 const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -363,6 +365,16 @@ Deno.serve(async (req) => {
     const { type, tenantId, invoiceId, customerId, jobId, recipientEmail, lang: langOverride } =
       await req.json();
 
+    // Only a member of this workspace (or the internal reminder job, which
+    // calls with the service key) may send on its behalf.
+    const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (jwt !== Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+      const { data: { user } } = await db.auth.getUser(jwt);
+      if (!user) throw new Error("Not authenticated");
+      const { data: allowed } = await db.rpc("is_member_of", { p_tenant: tenantId, p_user: user.id });
+      if (!allowed) throw new Error("Not a member of this workspace");
+    }
+
     const [{ data: tenant }, { data: settings }] = await Promise.all([
       db.from("tenants").select("name, default_language").eq("id", tenantId).single(),
       db.from("tenant_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
@@ -379,7 +391,7 @@ Deno.serve(async (req) => {
       const { data: inv, error } = await db
         .from("invoices")
         .select("*, customer:customers(id,name,contact_name,email,phone,language)")
-        .eq("id", invoiceId).single();
+        .eq("id", invoiceId).eq("tenant_id", tenantId).single();
       if (error || !inv) throw new Error("Invoice not found");
 
       const customer = inv.customer as Row;
@@ -400,7 +412,7 @@ Deno.serve(async (req) => {
     } else if (type === "win_back") {
       if (!customerId) throw new Error("customerId required");
       const { data: customer, error } = await db
-        .from("customers").select("*").eq("id", customerId).single();
+        .from("customers").select("*").eq("id", customerId).eq("tenant_id", tenantId).single();
       if (error || !customer) throw new Error("Customer not found");
       to = recipientEmail ?? (customer.email as string) ?? "";
       if (!to) throw new Error("Customer has no email address. Add one under Customers first.");
@@ -412,7 +424,7 @@ Deno.serve(async (req) => {
       const { data: job, error } = await db
         .from("jobs")
         .select("*, customer:customers(id,name,contact_name,email,language)")
-        .eq("id", jobId).single();
+        .eq("id", jobId).eq("tenant_id", tenantId).single();
       if (error || !job) throw new Error("Job not found");
       const customer = job.customer as Row;
       to = recipientEmail ?? (customer.email as string) ?? "";
@@ -426,15 +438,23 @@ Deno.serve(async (req) => {
 
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set in Supabase project secrets");
 
+    // Test-safety redirect: while EMAIL_TEST_TO is set, every email is sent there
+    // instead of the real customer, tagged with the intended recipient in the
+    // subject. Remove the EMAIL_TEST_TO secret to send to real customers.
+    const TEST_TO = (Deno.env.get("EMAIL_TEST_TO") ?? "").trim();
+    const intendedTo = to;
+    const sendTo = TEST_TO || to;
+    const sendSubject = TEST_TO ? `[TEST -> ${intendedTo}] ${subject}` : subject;
+
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: `${biz} <${FROM_EMAIL}>`, to, subject, html }),
+      body: JSON.stringify({ from: `${biz} <${FROM_EMAIL}>`, to: sendTo, subject: sendSubject, html, ...(REPLY_TO ? { reply_to: REPLY_TO } : {}) }),
     });
     if (!resp.ok) throw new Error(`Resend error (${resp.status}): ${await resp.text()}`);
 
     const result = await resp.json();
-    return new Response(JSON.stringify({ ok: true, id: result.id, to, subject, lang }), {
+    return new Response(JSON.stringify({ ok: true, id: result.id, to: sendTo, intendedTo, testMode: Boolean(TEST_TO), subject: sendSubject, lang }), {
       headers: { "Content-Type": "application/json", ...cors },
     });
 

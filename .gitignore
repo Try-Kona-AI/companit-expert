@@ -10,3 +10,12 @@ dist
 .direnv/
 .env.local
 .env.kona
+
+# one-time login handoff files
+*-login.txt
+*.log
+
+# prospect lists stay private (repo is public)
+leads/
+.claude/
+dist-demo/

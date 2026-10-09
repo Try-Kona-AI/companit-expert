@@ -1,4 +1,6 @@
-import type { Customer, Invoice, Job, Lead, SettingsDraft, Tenant } from './types'
+import type {
+  Campaign, CampaignStep, Customer, Enrollment, Invoice, Job, Lead, OutreachMessage, SettingsDraft, Tenant,
+} from './types'
 
 /**
  * Local fallback store. Used only when Supabase env vars are absent so the app
@@ -14,6 +16,11 @@ interface Snapshot {
   invoices: Invoice[]
   jobs: Job[]
   leads: Lead[]
+  campaigns: Campaign[]
+  campaignSteps: CampaignStep[]
+  enrollments: Enrollment[]
+  outreach: OutreachMessage[]
+  suppressions: string[]
   email: string | null
 }
 
@@ -139,6 +146,11 @@ function seed(): Snapshot {
     invoices,
     jobs,
     leads,
+    campaigns: [],
+    campaignSteps: [],
+    enrollments: [],
+    outreach: [],
+    suppressions: [],
     email: null,
   }
 }
@@ -146,7 +158,13 @@ function seed(): Snapshot {
 function read(): Snapshot {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as Snapshot
+    if (raw) {
+      // Snapshots saved before outreach existed lack these collections.
+      const s = JSON.parse(raw) as Snapshot
+      s.campaigns ??= []; s.campaignSteps ??= []; s.enrollments ??= []
+      s.outreach ??= []; s.suppressions ??= []
+      return s
+    }
   } catch {
     /* ignore */
   }

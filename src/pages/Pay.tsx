@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { LIVE, db, supabaseUrl } from '../lib/supabase'
+import { LIVE, db } from '../lib/supabase'
 import { snapshot } from '../lib/demoStore'
 import { useI18n } from '../lib/i18n'
 import { money } from '../lib/format'
@@ -16,14 +16,24 @@ interface InvoiceView {
   customerName: string | null
 }
 
+interface PayInfo {
+  zelle_contact?: string | null
+  bank_name?: string | null
+  bank_routing?: string | null
+  bank_account?: string | null
+  mailing_name?: string | null
+  mailing_address?: string | null
+  contact_phone?: string | null
+  other_instructions?: string | null
+}
+
 export default function Pay() {
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const { t } = useI18n()
   const [invoice, setInvoice] = useState<InvoiceView | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
-  const [paying, setPaying]   = useState(false)
-  const [payError, setPayError] = useState<string | null>(null)
+  const [info, setInfo]       = useState<PayInfo | null>(null)
 
   useEffect(() => {
     if (!invoiceId) return
@@ -37,6 +47,7 @@ export default function Pay() {
           amount: inv.amount, status: inv.status, tenant_id: inv.tenant_id,
           customerName: s.customers.find(c => c.id === inv.customer_id)?.name ?? null,
         })
+        setInfo(s.settings as PayInfo)
         setLoading(false)
         return
       }
@@ -60,32 +71,16 @@ export default function Pay() {
           tenant_id: raw.tenant_id as string,
           customerName: (raw.customer_name as string | null) ?? null,
         })
+        const { data: pi } = await db()
+          .rpc('get_public_payment_info', { p_invoice: invoiceId })
+          .maybeSingle()
+        setInfo((pi as PayInfo | null) ?? null)
       }
       setLoading(false)
     })()
   }, [invoiceId, t])
 
-  async function payByCard() {
-    if (!invoice || !invoiceId) return
-    setPaying(true)
-    setPayError(null)
-    try {
-      const res = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId, tenantId: invoice.tenant_id }),
-      })
-      const result = await res.json() as { ok?: boolean; url?: string; error?: string }
-      if (result.ok && result.url) window.location.href = result.url
-      else {
-        setPayError(result.error ?? 'Unable to start checkout.')
-        setPaying(false)
-      }
-    } catch (e) {
-      setPayError(e instanceof Error ? e.message : 'Network error.')
-      setPaying(false)
-    }
-  }
+
 
   if (loading) {
     return (
@@ -141,15 +136,22 @@ export default function Pay() {
             </div>
           ) : (
             <div className="space-y-3">
-              <button
-                onClick={() => void payByCard()}
-                disabled={paying}
-                className="w-full rounded-lg bg-[#0c2340] px-6 py-4 text-base font-semibold text-white transition-colors hover:bg-[#15315a] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {paying ? t('pay.redirecting') : t('pay.payByCard', { amount: money(invoice.amount) })}
-              </button>
-              {payError && <p className="text-center text-sm text-red-600">{payError}</p>}
-              <p className="text-center text-xs text-slate-400">{t('pay.secure')}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('pay.howToPay')}</p>
+              {info?.zelle_contact && <Row label={t('pay.zelle')} value={info.zelle_contact} />}
+              {info?.bank_name && info?.bank_routing && info?.bank_account && (
+                <Row label={`${t('pay.ach')} · ${info.bank_name}`} value={`${t('pay.routing')} ${info.bank_routing} · ${t('pay.account')} ${info.bank_account}`} />
+              )}
+              {info?.mailing_name && info?.mailing_address && (
+                <Row label={t('pay.checkTo', { name: info.mailing_name })} value={info.mailing_address.replace(/\n/g, ', ')} />
+              )}
+              {info?.other_instructions && <p className="text-sm text-slate-600">{info.other_instructions}</p>}
+              {!info?.zelle_contact && !info?.bank_account && !info?.mailing_address && (
+                <p className="text-sm text-slate-600">{t('pay.contactUs')}</p>
+              )}
+              <p className="text-center text-xs text-slate-400">
+                {t('pay.includeNumber', { number: invoice.number })}
+                {info?.contact_phone ? ` ${t('pay.questions', { phone: info.contact_phone })}` : ''}
+              </p>
             </div>
           )}
         </div>
