@@ -52,7 +52,8 @@ fi
 
 echo "==> 3. function secrets"
 for k in RESEND_API_KEY FROM_EMAIL REPLY_TO ANTHROPIC_API_KEY APOLLO_API_KEY \
-         OUTREACH_FROM_EMAIL OUTREACH_REPLY_TO EMAIL_TEST_TO; do
+         OUTREACH_FROM_EMAIL OUTREACH_REPLY_TO OUTREACH_FROM_NAME OUTREACH_SIGNER_PHONE \
+         OUTREACH_WEBSITE OUTREACH_TIKTOK OUTREACH_LOGO_URL EMAIL_TEST_TO; do
   v="${!k:-}"
   if [ -n "$v" ]; then supabase secrets set "$k=$v" --project-ref "$REF" >/dev/null; echo "    set     $k"
   else echo "    blank   $k"; fi

@@ -21,6 +21,12 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("OUTREACH_FROM_EMAIL") || Deno.env.get("FROM_EMAIL") || "";
 const REPLY_TO = Deno.env.get("OUTREACH_REPLY_TO") ?? "";
 const TEST_TO = (Deno.env.get("EMAIL_TEST_TO") ?? "").trim();
+// Who the outreach is signed by. {{signature}} in a step body expands to this.
+const SIGNER_NAME = (Deno.env.get("OUTREACH_FROM_NAME") ?? "").trim();
+const SIGNER_PHONE = (Deno.env.get("OUTREACH_SIGNER_PHONE") ?? "").trim();
+const SITE_URL = (Deno.env.get("OUTREACH_WEBSITE") ?? "").trim();
+const TIKTOK_URL = (Deno.env.get("OUTREACH_TIKTOK") ?? "").trim();
+const LOGO_URL = (Deno.env.get("OUTREACH_LOGO_URL") ?? "").trim();
 
 const db = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -59,6 +65,13 @@ function firstNameOf(name: string): string {
   return n.split(/\s+/)[0];
 }
 
+function greetingFor(first: string, company: string, lang: Lang): string {
+  const co = company.replace(/[,.]?\s*\b(llc|inc|corp|corporation|co)\b\.?$/i, "").trim();
+  if (lang === "ru") return first ? `Здравствуйте, ${first}!` : "Здравствуйте!";
+  if (first) return `Hello ${first},`;
+  return co ? `Hello ${co} team,` : "Hello,";
+}
+
 function renderOutreach(
   text: string, lead: Row, ctx: { ownerName: string; business: string; phone: string; lang: Lang },
 ): string {
@@ -70,6 +83,7 @@ function renderOutreach(
     owner_name: ctx.ownerName,
     business: ctx.business,
     phone: ctx.phone,
+    greeting: greetingFor(firstNameOf(String(lead.name ?? "")), String(lead.company ?? "").trim(), ctx.lang),
   };
   return text
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k: string) => (k in values ? values[k] : m))
@@ -79,6 +93,38 @@ function renderOutreach(
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// Make URLs and bare domains in the (already escaped) body clickable.
+function linkify(escaped: string): string {
+  return escaped.replace(
+    /(?<![@\w.\/-])((?:https?:\/\/)?(?:www\.)?[a-z0-9-]+\.(?:com|net|org|nyc|co|io|ai)(?:\/[^\s<]*)?)/gi,
+    (m) => `<a href="${/^https?:/i.test(m) ? m : "https://" + m}" style="color:#0072ce;">${m.replace(/^https?:\/\//i, "")}</a>`,
+  );
+}
+
+function signature(name: string, business: string, phone: string, lang: Lang) {
+  const closing = lang === "ru" ? "С уважением," : "Best,";
+  const tel = phone.replace(/[^\d+]/g, "");
+  const links: { label: string; url: string }[] = [];
+  if (SITE_URL) links.push({ label: lang === "ru" ? "Сайт" : "Website", url: SITE_URL });
+  if (TIKTOK_URL) links.push({ label: "TikTok", url: TIKTOK_URL });
+  const a = (url: string, label: string) =>
+    `<a href="${esc(url)}" style="color:#0072ce;text-decoration:none;font-weight:600;">${esc(label)}</a>`;
+  const html =
+    `<p style="margin:0 0 14px;">${closing}</p>` +
+    `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:460px;"><tr>` +
+    `<td style="border-left:3px solid #0c2340;padding:2px 0 2px 12px;font-size:14px;line-height:1.5;color:#334155;">` +
+    `<div style="font-size:15px;font-weight:700;color:#0f172a;">${esc(name)}</div>` +
+    `<div style="color:#0c2340;font-weight:600;">${esc(business)}</div>` +
+    (phone ? `<div><a href="tel:${tel}" style="color:#334155;text-decoration:none;">${esc(phone)}</a></div>` : "") +
+    (links.length ? `<div style="margin-top:4px;">${links.map((l) => a(l.url, l.label)).join(' <span style="color:#cbd5e1;">|</span> ')}</div>` : "") +
+    `</td>` +
+    (LOGO_URL ? `<td align="right" valign="middle" style="padding-left:16px;"><img src="${esc(LOGO_URL)}" alt="${esc(business)}" width="64" style="display:block;width:64px;height:auto;border:0;"></td>` : "") +
+    `</tr></table>`;
+  const text = [closing, "", name, business, phone, ...links.map((l) => `${l.label}: ${l.url}`)]
+    .filter((x, i) => x !== "" || i === 1).join("\n");
+  return { html, text };
+}
 
 const FOOTER = {
   en: (biz: string, addr: string, url: string) => ({
@@ -182,18 +228,23 @@ Deno.serve(async (req) => {
       const unsubUrl = `${fnBase}?t=${e.id}`;
       const footer = FOOTER[lang](business, mailingAddress, unsubUrl);
 
+      const sig = signature(SIGNER_NAME || ownerName, business, SIGNER_PHONE || phone, lang);
+      const [bodyMain, bodyRest = ""] = body.split("{{signature}}");
+      const toHtml = (t: string) => linkify(esc(t.replace(/\s+$/, ""))).replace(/\n/g, "<br>");
       const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1e293b;">` +
-        esc(body).replace(/\n/g, "<br>") + footer.html + `</div>`;
+        toHtml(bodyMain) + (body.includes("{{signature}}") ? `<br><br>${sig.html}${bodyRest.trim() ? "<br>" + toHtml(bodyRest) : ""}` : "") +
+        footer.html + `</div>`;
+      const textBody = body.includes("{{signature}}") ? body.replace("{{signature}}", sig.text) : body;
 
       const resp = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: `${ownerName ? `${ownerName}, ` : ""}${business} <${FROM_EMAIL}>`,
+          from: `${(SIGNER_NAME || ownerName) ? `${SIGNER_NAME || ownerName}, ` : ""}${business} <${FROM_EMAIL}>`,
           to: TEST_TO || email,
           subject: TEST_TO ? `[TEST -> ${email}] ${subject}` : subject,
           html,
-          text: body + footer.text,
+          text: textBody + footer.text,
           ...(REPLY_TO ? { reply_to: REPLY_TO } : {}),
           headers: {
             "List-Unsubscribe": `<${unsubUrl}>`,

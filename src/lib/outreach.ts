@@ -46,6 +46,7 @@ export function renderOutreach(
     owner_name: ctx.ownerName,
     business:   ctx.business,
     phone:      ctx.phone,
+    greeting:   greetingFor(first, (lead.company ?? '').trim(), ctx.lang),
   }
   return text
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k: string) => (k in values ? values[k] : m))
@@ -182,3 +183,11 @@ const RU_LANDLORD: StepDraft[] = [
 {{owner_name}}`,
   },
 ]
+
+/** "Hello Victoria," / "Hello Fidy Management team," / RU equivalents. */
+export function greetingFor(first: string, company: string, lang: 'en' | 'ru'): string {
+  const co = company.replace(/[,.]?\s*\b(llc|inc|corp|corporation|co)\b\.?$/i, '').trim()
+  if (lang === 'ru') return first ? `Здравствуйте, ${first}!` : 'Здравствуйте!'
+  if (first) return `Hello ${first},`
+  return co ? `Hello ${co} team,` : 'Hello,'
+}
