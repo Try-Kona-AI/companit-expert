@@ -20,3 +20,6 @@ leads/
 .claude/
 dist-demo/
 snapshot/
+
+# private Claude Code context (business notes)
+CLAUDE.local.md
