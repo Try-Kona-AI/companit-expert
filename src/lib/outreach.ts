@@ -9,8 +9,8 @@ import type { CampaignAudience, Lang, Lead } from './types'
  */
 
 export const MERGE_TAGS = [
-  '{{first_name}}', '{{company}}', '{{building}}',
-  '{{owner_name}}', '{{business}}', '{{phone}}',
+  '{{greeting}}', '{{signature}}', '{{company}}', '{{first_name}}',
+  '{{building}}', '{{business}}', '{{phone}}',
 ] as const
 
 export interface MergeContext {
@@ -47,6 +47,7 @@ export function renderOutreach(
     business:   ctx.business,
     phone:      ctx.phone,
     greeting:   greetingFor(first, (lead.company ?? '').trim(), ctx.lang),
+    signature:  `${ctx.lang === 'ru' ? 'С уважением,' : 'Best,'}\n\nMichael K\n${ctx.business}\n240-599-6037\nWebsite | TikTok   [logo]`,
   }
   return text
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k: string) => (k in values ? values[k] : m))
@@ -65,98 +66,88 @@ export function starterSteps(audience: CampaignAudience, lang: Lang): StepDraft[
 const EN_PM: StepDraft[] = [
   {
     delay_days: 0,
-    subject: 'Turnover crew for {{company}}',
-    body: `Hi {{first_name}},
+    subject: 'Apartment turnovers for {{company}}',
+    body: `{{greeting}}
 
-I'm {{owner_name}}, owner of {{business}}, a licensed and insured painting and renovation crew here in New York. We do apartment turnovers for property managers: paint, drywall, flooring, kitchen and bath fixes, usually done in 1 to 3 days so units get back on the market fast.
+I'm Michael with {{business}}, a Brooklyn painting and renovation team. We handle affordable apartment turnovers, painting, drywall, flooring and repairs for property managers and landlords across all five boroughs.
 
-I saw that {{company}} manages {{building}}. If you ever need a reliable crew for turnovers or repairs, I'd be glad to price out your next vacant unit.
+When a unit goes vacant, we get it rent-ready fast. You get a written quote before we start, photos and videos when we finish, and one clean invoice per unit.
 
-Worth a quick call this week?
+See our recent work and Google reviews at companitexpert.com
 
-{{owner_name}}
-{{business}} · {{phone}}`,
+Do you have a turnover coming up? I'd like to quote it.
+
+{{signature}}`,
   },
   {
     delay_days: 4,
-    subject: 'Re: Turnover crew for {{company}}',
-    body: `Hi {{first_name}},
+    subject: 'Re: Apartment turnovers for {{company}}',
+    body: `{{greeting}}
 
-Following up on my note. Most managers we work with start by sending us one unit to see the quality and the turnaround. If you have a vacancy coming up, I can walk it and send you a fixed price within 24 hours.
+Following up on my last note. If you have a vacant unit coming up, our team can walk it this week and have a quote to you the same day.
 
-{{owner_name}}
-{{phone}}`,
+{{signature}}`,
   },
   {
     delay_days: 7,
-    subject: 'Last note from {{business}}',
-    body: `Hi {{first_name}},
+    subject: 'Vendor list',
+    body: `{{greeting}}
 
-I won't keep filling your inbox. If turnovers or repairs ever start piling up, just reply here or call/text me at {{phone}} and we'll take care of it.
+One last note from me. We'd like to earn a spot on your vendor list for paint and turnovers, and the best way to do that is one job. Our work and reviews are at companitexpert.com. If the timing isn't right, reply "later" and I'll check back in a few months.
 
-Thanks,
-{{owner_name}}`,
+{{signature}}`,
   },
 ]
 
 const EN_LANDLORD: StepDraft[] = [
   {
     delay_days: 0,
-    subject: 'Repairs and turnovers at {{building}}',
-    body: `Hi {{first_name}},
+    subject: 'Turnovers and repairs at {{building}}',
+    body: `{{greeting}}
 
-I'm {{owner_name}}, owner of {{business}}, a licensed and insured painting and renovation company in New York. We work with building owners on unit turnovers, painting, and repairs between tenants, with fixed prices and quick turnaround.
+I'm Michael with {{business}}, a Brooklyn painting and renovation team. We handle affordable unit turnovers, painting and repairs between tenants for building owners across all five boroughs, with a written quote up front and photos and videos when we finish.
 
-If you have work coming up at {{building}} or any of your other buildings, I'd be happy to come by and give you a free quote.
+See our recent work and Google reviews at companitexpert.com
 
-{{owner_name}}
-{{business}} · {{phone}}`,
+Do you have a unit opening up? I'd like to quote it.
+
+{{signature}}`,
   },
   {
     delay_days: 5,
-    subject: 'Re: Repairs and turnovers at {{building}}',
-    body: `Hi {{first_name}},
+    subject: 'Re: Turnovers and repairs at {{building}}',
+    body: `{{greeting}}
 
-Just following up. Whenever a unit opens up or something needs fixing, a quick call or text to {{phone}} is all it takes and we'll schedule a walkthrough.
+Following up on my last note. Whenever a unit opens up or something needs fixing, reply here and our team will set up a walkthrough the same week.
 
-{{owner_name}}`,
+{{signature}}`,
   },
 ]
 
 const RU_PM: StepDraft[] = [
   {
     delay_days: 0,
-    subject: 'Бригада для ремонта квартир, {{company}}',
-    body: `Здравствуйте, {{first_name}}!
+    subject: 'Подготовка квартир для {{company}}',
+    body: `{{greeting}}
 
-Меня зовут {{owner_name}}, я владелец {{business}}, лицензированной и застрахованной ремонтной компании в Нью-Йорке. Мы делаем ремонт квартир между жильцами для управляющих компаний: покраска, гипсокартон, полы, кухни и ванные, обычно за 1-3 дня, чтобы квартира быстрее сдавалась.
+Меня зовут Майкл, я из {{business}}, бруклинской команды по покраске и ремонту. Мы недорого готовим квартиры к сдаче, а также занимаемся покраской, гипсокартоном, полами и ремонтом для управляющих компаний и владельцев во всех пяти районах.
 
-Я увидел, что {{company}} управляет домом {{building}}. Если вам нужна надёжная бригада для ремонтов, буду рад оценить вашу следующую свободную квартиру.
+Когда квартира освобождается, мы быстро готовим её к сдаче. Письменная смета до начала работ, фото и видео после, один понятный счёт на квартиру.
 
-Удобно созвониться на этой неделе?
+Наши работы и отзывы: companitexpert.com
 
-{{owner_name}}
-{{business}} · {{phone}}`,
+Есть квартира, которую нужно подготовить? Буду рад посчитать.
+
+{{signature}}`,
   },
   {
     delay_days: 4,
-    subject: 'Re: Бригада для ремонта квартир, {{company}}',
-    body: `Здравствуйте, {{first_name}}!
+    subject: 'Re: Подготовка квартир для {{company}}',
+    body: `{{greeting}}
 
-Пишу ещё раз. Обычно управляющие начинают с одной квартиры, чтобы оценить качество и сроки. Если скоро освобождается квартира, я приеду, посмотрю и пришлю фиксированную цену в течение 24 часов.
+Напоминаю о своём письме. Если скоро освобождается квартира, наша команда посмотрит её на этой неделе и пришлёт смету в тот же день.
 
-{{owner_name}}
-{{phone}}`,
-  },
-  {
-    delay_days: 7,
-    subject: 'Последнее письмо от {{business}}',
-    body: `Здравствуйте, {{first_name}}!
-
-Не буду больше занимать ваш почтовый ящик. Если появятся ремонты, просто ответьте на это письмо или позвоните/напишите мне: {{phone}}.
-
-Спасибо,
-{{owner_name}}`,
+{{signature}}`,
   },
 ]
 
@@ -164,23 +155,24 @@ const RU_LANDLORD: StepDraft[] = [
   {
     delay_days: 0,
     subject: 'Ремонт и подготовка квартир, {{building}}',
-    body: `Здравствуйте, {{first_name}}!
+    body: `{{greeting}}
 
-Меня зовут {{owner_name}}, я владелец {{business}}, лицензированной и застрахованной ремонтной компании в Нью-Йорке. Мы помогаем владельцам домов с ремонтом квартир между жильцами, покраской и мелким ремонтом, по фиксированной цене и быстро.
+Меня зовут Майкл, я из {{business}}, бруклинской команды по покраске и ремонту. Мы недорого готовим квартиры к новым жильцам, красим и делаем ремонт для владельцев домов во всех пяти районах. Письменная смета заранее, фото и видео после работ.
 
-Если в доме {{building}} или других ваших домах намечаются работы, с удовольствием приеду и бесплатно оценю.
+Наши работы и отзывы: companitexpert.com
 
-{{owner_name}}
-{{business}} · {{phone}}`,
+Освобождается квартира? Буду рад посчитать.
+
+{{signature}}`,
   },
   {
     delay_days: 5,
     subject: 'Re: Ремонт и подготовка квартир, {{building}}',
-    body: `Здравствуйте, {{first_name}}!
+    body: `{{greeting}}
 
-Напоминаю о себе. Когда освободится квартира или что-то понадобится починить, просто позвоните или напишите на {{phone}}, и мы приедем посмотреть.
+Напоминаю о своём письме. Когда освободится квартира или понадобится ремонт, просто ответьте, и мы приедем посмотреть на этой же неделе.
 
-{{owner_name}}`,
+{{signature}}`,
   },
 ]
 
