@@ -65,8 +65,12 @@ function firstNameOf(name: string): string {
   return n.split(/\s+/)[0];
 }
 
+function shortCompany(company: string): string {
+  return company.trim().replace(/[,.]?\s*\b(llc|inc|corp|corporation|co)\b\.?$/i, "").trim();
+}
+
 function greetingFor(first: string, company: string, lang: Lang): string {
-  const co = company.replace(/[,.]?\s*\b(llc|inc|corp|corporation|co)\b\.?$/i, "").trim();
+  const co = shortCompany(company);
   if (lang === "ru") return first ? `Здравствуйте, ${first}!` : "Здравствуйте!";
   if (first) return `Hello ${first},`;
   return co ? `Hello ${co} team,` : "Hello,";
@@ -78,7 +82,7 @@ function renderOutreach(
   const fb = FALLBACK[ctx.lang];
   const values: Record<string, string> = {
     first_name: firstNameOf(String(lead.name ?? "")) || fb.first_name,
-    company: String(lead.company ?? "").trim() || fb.company,
+    company: shortCompany(String(lead.company ?? "")) || fb.company,
     building: String(lead.building ?? "").trim() || fb.building,
     owner_name: ctx.ownerName,
     business: ctx.business,

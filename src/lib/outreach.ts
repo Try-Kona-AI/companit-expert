@@ -41,7 +41,7 @@ export function renderOutreach(
   const first = firstNameOf(lead)
   const values: Record<string, string> = {
     first_name: first || fb.first_name,
-    company:    (lead.company ?? '').trim() || fb.company,
+    company:    shortCompany(lead.company ?? '') || fb.company,
     building:   (lead.building ?? '').trim() || fb.building,
     owner_name: ctx.ownerName,
     business:   ctx.business,
@@ -177,8 +177,13 @@ const RU_LANDLORD: StepDraft[] = [
 ]
 
 /** "Hello Victoria," / "Hello Fidy Management team," / RU equivalents. */
+/** "Fidy Management Inc." -> "Fidy Management" for subjects and greetings. */
+export function shortCompany(company: string): string {
+  return company.trim().replace(/[,.]?\s*\b(llc|inc|corp|corporation|co)\b\.?$/i, '').trim()
+}
+
 export function greetingFor(first: string, company: string, lang: 'en' | 'ru'): string {
-  const co = company.replace(/[,.]?\s*\b(llc|inc|corp|corporation|co)\b\.?$/i, '').trim()
+  const co = shortCompany(company)
   if (lang === 'ru') return first ? `Здравствуйте, ${first}!` : 'Здравствуйте!'
   if (first) return `Hello ${first},`
   return co ? `Hello ${co} team,` : 'Hello,'
