@@ -167,7 +167,9 @@ Deno.serve(async (req) => {
 
     // ---- sender identity + legal footer -------------------------------------
     const { data: settings } = await db.from("tenant_settings").select("*").eq("tenant_id", tenantId).maybeSingle();
-    const business = String(settings?.mailing_name || tenant.name || "Companit Expert");
+    // Legal name (with LLC) goes in the CAN-SPAM footer; the short name reads as a person.
+    const legalName = String(settings?.mailing_name || tenant.name || "Companit Expert");
+    const business = shortCompany(legalName);
     const mailingAddress = String(settings?.mailing_address ?? "").replace(/\s*\n\s*/g, ", ").trim();
     if (!mailingAddress) {
       return json({ error: "Add your business mailing address in Settings first. US law requires it on every outreach email." });
@@ -230,7 +232,7 @@ Deno.serve(async (req) => {
       const subject = renderOutreach(String(step.subject), lead, ctx);
       const body = renderOutreach(String(step.body), lead, ctx);
       const unsubUrl = `${fnBase}?t=${e.id}`;
-      const footer = FOOTER[lang](business, mailingAddress, unsubUrl);
+      const footer = FOOTER[lang](legalName, mailingAddress, unsubUrl);
 
       const sig = signature(SIGNER_NAME || ownerName, business, SIGNER_PHONE || phone, lang);
       const [bodyMain, bodyRest = ""] = body.split("{{signature}}");
