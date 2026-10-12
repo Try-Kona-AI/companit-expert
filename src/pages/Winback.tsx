@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getTenant, listCustomers, refreshCustomerStages, saveCustomer } from '../lib/api'
+import { getSettings, getTenant, listCustomers, refreshCustomerStages, saveCustomer } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { sendEmail } from '../lib/email'
@@ -11,11 +11,34 @@ import {
 
 type RowState = 'sending' | 'error' | 'copied'
 
+/** "Handyman · Thumbtack ($50/hr) · ..." -> { job: 'handyman work', app: 'Thumbtack' } */
+function pastJob(notes: string | null): { job: string; app: string } {
+  const n = notes ?? ''
+  const app = /taskrabbit/i.test(n) ? 'TaskRabbit' : /thumbtack/i.test(n) ? 'Thumbtack' : ''
+  const cat = n.split(/\s+[·-]\s+/)[0].toLowerCase()
+  const job =
+    /handyman/.test(cat) ? 'handyman work'
+    : /paint/.test(cat) ? 'painting'
+    : /drywall/.test(cat) ? 'drywall repair'
+    : /assembl/.test(cat) ? 'furniture assembly'
+    : 'job'
+  return { job, app }
+}
+
+/** "2025-12-14" -> "December 2025"; current year drops the year. */
+function serviceMonth(d: string | null): string {
+  if (!d) return 'the past'
+  const dt = new Date(`${d}T12:00:00`)
+  const m = dt.toLocaleString('en-US', { month: 'long' })
+  return dt.getFullYear() === new Date().getFullYear() ? m : `${m} ${dt.getFullYear()}`
+}
+
 export default function Winback() {
   const { tenantId } = useAuth()
   const { t, locale } = useI18n()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [owner, setOwner]   = useState('')
+  const [phone, setPhone]   = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState<string | null>(null)
   const [state, setState]   = useState<Record<string, RowState>>({})
@@ -25,8 +48,9 @@ export default function Winback() {
     void (async () => {
       try {
         await refreshCustomerStages(tenantId)
-        const [all, tenant] = await Promise.all([listCustomers(tenantId), getTenant(tenantId)])
+        const [all, tenant, settings] = await Promise.all([listCustomers(tenantId), getTenant(tenantId), getSettings(tenantId)])
         setOwner(tenant?.owner_name ?? tenant?.name ?? '')
+        setPhone(settings.contact_phone ?? "")
         setCustomers(
           all
             .filter(c => c.status === 'win_back' || c.status === 'due_for_service')
@@ -42,7 +66,15 @@ export default function Winback() {
   /** Short, text-friendly message drafted in the interface language. */
   function draft(c: Customer): string {
     const first = (c.contact_name ?? c.name).split(' ')[0]
-    return t(c.status === 'win_back' ? 'win.textWinBack' : 'win.textDue', { first, owner })
+    // Two letters with no vowel ("Zm") is an initial or handle, not a name.
+    const realFirst = /^[a-z]{0,2}$/i.test(first) && !/[aeiouy]/i.test(first) ? '' : first
+    const { job, app } = pastJob(c.notes)
+    return t(c.status === 'win_back' ? 'win.textWinBack' : 'win.textDue', {
+      first, owner, phone, job,
+      hi: realFirst ? `Hi ${realFirst},` : 'Hi,',
+      via: app ? ` through ${app}` : '',
+      month: serviceMonth(c.last_service_date),
+    })
   }
 
   function smsHref(c: Customer): string {

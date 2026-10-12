@@ -146,7 +146,7 @@ const en = {
   'win.msgDue':
     '{owner} at Companit Expert here, {first}. I was reviewing my calendar and wanted to reach out proactively. It is about time for us to connect, make sure everything is on track, and talk through what the next few months look like for you. I have availability this month if you would like to find a time.',
   'win.textWinBack':
-    "Hi {first}, it's {owner} from Companit Expert. It's been a while since I worked on your place. I've got some openings coming up, happy to help with any painting, repairs, or small fixes you need. Just text me back here.",
+    "{hi} this is Michael with Companit Expert. {owner} did your {job} back in {month}{via}. Next time you need painting, repairs or any small fix, you can skip the app and book {owner} directly: call or text {phone}, or just reply here. Reply STOP to opt out.",
   'win.textDue':
     "Hi {first}, it's {owner} from Companit Expert. Checking in, it might be about time for a touch-up or a few fixes around the place. I've got availability this month if you'd like to set something up.",
   'win.text': 'Text',
