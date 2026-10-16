@@ -608,6 +608,30 @@ export async function sentTodayCount(tenantId: string): Promise<number> {
   return count ?? 0
 }
 
+/**
+ * Record an outreach email sent by hand (Gmail or a mail app) and advance the
+ * prospect to the next step. Cold email goes out from a real mailbox, not the
+ * invoicing domain, so the app tracks the sequence instead of sending it.
+ */
+export async function markOutreachSent(tenantId: string, e: Enrollment, toEmail: string, subject: string): Promise<void> {
+  if (!LIVE) { await sendOutreach(tenantId, [e.id]); return }
+  const { error: mErr } = await db().from('outreach_messages').insert({
+    tenant_id: tenantId, campaign_id: e.campaign_id, enrollment_id: e.id, lead_id: e.lead_id,
+    step_no: e.next_step, to_email: toEmail, subject, provider_id: 'manual', test_mode: false,
+  })
+  if (mErr) throw new Error(mErr.message)
+  const { data: next, error: nErr } = await db().from('campaign_steps').select('step_no, delay_days')
+    .eq('campaign_id', e.campaign_id).eq('step_no', e.next_step + 1).maybeSingle()
+  if (nErr) throw new Error(nErr.message)
+  const now = new Date().toISOString()
+  const { error: uErr } = await db().from('campaign_enrollments').update(
+    next ? { next_step: next.step_no, next_send_on: nyDay(next.delay_days), last_sent_at: now }
+         : { status: 'completed', last_sent_at: now },
+  ).eq('id', e.id)
+  if (uErr) throw new Error(uErr.message)
+  if (e.lead?.status === 'new') await db().from('leads').update({ status: 'contacted' }).eq('id', e.lead_id)
+}
+
 export interface SendResult { sent: number; skipped: number; testMode: boolean; errors: string[] }
 
 /**

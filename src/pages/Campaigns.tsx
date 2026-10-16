@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LIVE, deleteCampaign, getSettings, getTenant, listCampaigns, listEnrollments, listSteps,
-  nyDay, patchCampaign, sendOutreach, sentTodayCount, setEnrollmentStatus, type SendResult,
+  markOutreachSent, nyDay, patchCampaign, sentTodayCount, setEnrollmentStatus,
 } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n, type TKey } from '../lib/i18n'
-import { renderOutreach, type MergeContext } from '../lib/outreach'
+import { outreachFooter, renderOutreach, type MergeContext } from '../lib/outreach'
 import type { Campaign, CampaignAudience, CampaignStep, Enrollment, EnrollmentStatus } from '../lib/types'
 import { Badge, Button, Card, DeleteButton, ErrorNote, Loading, PageHeader } from '../components/ui'
 import CampaignModal from '../components/CampaignModal'
@@ -22,6 +22,7 @@ export default function Campaigns() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [ctx, setCtx]             = useState<MergeContext>({ ownerName: '', business: '', phone: '', lang: 'en' })
   const [hasAddress, setHasAddress] = useState(true)
+  const [address, setAddress]     = useState('')
   const [sentToday, setSentToday] = useState(0)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
@@ -29,10 +30,8 @@ export default function Campaigns() {
   const [editing, setEditing]     = useState<{ campaign?: Campaign; preset?: CampaignAudience } | null>(null)
   const [enrolling, setEnrolling] = useState<Campaign | null>(null)
   const [open, setOpen]           = useState<string | null>(null)
-  const [skip, setSkip]           = useState<Record<string, boolean>>({})
   const [peek, setPeek]           = useState<string | null>(null)
-  const [sending, setSending]     = useState(false)
-  const [result, setResult]       = useState<SendResult | null>(null)
+  const [rowState, setRowState]   = useState<Record<string, 'copied' | 'saving'>>({})
 
   async function load() {
     if (!tenantId) return
@@ -52,6 +51,7 @@ export default function Campaigns() {
         lang: 'en',
       })
       setHasAddress(Boolean(settings.mailing_address?.trim()))
+      setAddress(settings.mailing_address ?? '')
       setSentToday(sent)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -72,28 +72,46 @@ export default function Campaigns() {
         (steps[e.campaign_id] ?? []).some(s => s.step_no === e.next_step)
     })
   }, [enrollments, byId, steps])
-  const approved = due.filter(e => !skip[e.id])
 
   function draftFor(e: Enrollment) {
     const c = byId[e.campaign_id]
     const step = (steps[e.campaign_id] ?? []).find(s => s.step_no === e.next_step)
     if (!c || !step || !e.lead) return null
     const pctx = { ...ctx, lang: c.language }
-    return { subject: renderOutreach(step.subject, e.lead, pctx), body: renderOutreach(step.body, e.lead, pctx) }
+    return {
+      subject: renderOutreach(step.subject, e.lead, pctx),
+      body: renderOutreach(step.body, e.lead, pctx) + outreachFooter(ctx.business, address, c.language),
+    }
   }
 
-  async function send() {
-    if (!tenantId || approved.length === 0) return
-    if (!window.confirm(t('camp.confirmSend', { n: approved.length }))) return
-    setSending(true); setResult(null); setError(null)
+  function gmailHref(to: string, d: { subject: string; body: string }) {
+    const q = new URLSearchParams({ view: 'cm', fs: '1', to, su: d.subject, body: d.body })
+    return `https://mail.google.com/mail/?${q.toString()}`
+  }
+
+  function mailtoHref(to: string, d: { subject: string; body: string }) {
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(d.subject)}&body=${encodeURIComponent(d.body)}`
+  }
+
+  async function copyDraft(e: Enrollment, d: { subject: string; body: string }) {
+    try { await navigator.clipboard.writeText(`${d.subject}\n\n${d.body}`) } catch { /* ignore */ }
+    setRowState(s => ({ ...s, [e.id]: 'copied' }))
+    setTimeout(() => setRowState(s => {
+      if (s[e.id] !== 'copied') return s
+      const n = { ...s }; delete n[e.id]; return n
+    }), 1500)
+  }
+
+  async function markSent(e: Enrollment, d: { subject: string }) {
+    if (!tenantId || !e.lead?.email) return
+    setRowState(s => ({ ...s, [e.id]: 'saving' })); setError(null)
     try {
-      setResult(await sendOutreach(tenantId, approved.map(e => e.id)))
-      setSkip({})
+      await markOutreachSent(tenantId, e, e.lead.email, d.subject)
       await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     }
-    setSending(false)
+    setRowState(s => { const n = { ...s }; delete n[e.id]; return n })
   }
 
   async function toggleStatus(c: Campaign) {
@@ -134,9 +152,6 @@ export default function Campaigns() {
               {t('camp.todaySub', { due: due.length, sent: sentToday })}
             </div>
           </div>
-          <Button onClick={() => void send()} disabled={sending || approved.length === 0 || !hasAddress}>
-            {sending ? t('camp.sending') : t('camp.sendN', { n: approved.length })}
-          </Button>
         </div>
 
         {!hasAddress && (
@@ -147,12 +162,8 @@ export default function Campaigns() {
         {!LIVE && (
           <div className="border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-500">{t('camp.demoNote')}</div>
         )}
-        {result && (
-          <div className="border-b border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm text-emerald-800">
-            {t('camp.result', { sent: result.sent, skipped: result.skipped })}
-            {result.testMode && <span className="ml-1">{t('camp.resultTest')}</span>}
-            {result.errors.length > 0 && <div className="mt-1 text-xs text-red-700">{result.errors.slice(0, 5).join(' · ')}</div>}
-          </div>
+        {due.length > 0 && (
+          <div className="border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-500">{t('camp.manualNote')}</div>
         )}
 
         {due.length === 0 ? (
@@ -162,13 +173,12 @@ export default function Campaigns() {
             {due.map(e => {
               const c = byId[e.campaign_id]
               const total = (steps[e.campaign_id] ?? []).length
-              const d = peek === e.id ? draftFor(e) : null
+              const draft = draftFor(e)
+              const d = peek === e.id ? draft : null
+              const to = e.lead?.email ?? ''
               return (
                 <div key={e.id} className="px-5 py-3">
                   <div className="flex items-start gap-3">
-                    <input type="checkbox" checked={!skip[e.id]}
-                      onChange={ev => setSkip(s => ({ ...s, [e.id]: !ev.target.checked }))}
-                      className="mt-1 h-4 w-4 rounded border-slate-300" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-slate-800">
                         {e.lead?.name}{e.lead?.company && e.lead.company !== e.lead.name ? <span className="font-normal text-slate-500"> · {e.lead.company}</span> : null}
@@ -182,8 +192,26 @@ export default function Campaigns() {
                       {peek === e.id ? t('camp.hide') : t('camp.preview')}
                     </button>
                   </div>
+                  {draft && hasAddress && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <a href={gmailHref(to, draft)} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center justify-center rounded-lg bg-[#0c2340] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#15315a]">
+                        {t('camp.openGmail')}
+                      </a>
+                      <a href={mailtoHref(to, draft)}
+                        className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-50">
+                        {t('camp.openMail')}
+                      </a>
+                      <Button size="sm" variant="secondary" onClick={() => void copyDraft(e, draft)}>
+                        {rowState[e.id] === 'copied' ? t('camp.copiedEmail') : t('camp.copyEmail')}
+                      </Button>
+                      <Button size="sm" onClick={() => void markSent(e, draft)} disabled={rowState[e.id] === 'saving'}>
+                        {t('camp.markSent')}
+                      </Button>
+                    </div>
+                  )}
                   {d && (
-                    <div className="ml-7 mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <div className="text-sm font-semibold text-slate-800">{d.subject}</div>
                       <pre className="mt-1.5 whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{d.body}</pre>
                     </div>

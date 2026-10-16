@@ -44,10 +44,10 @@ export function renderOutreach(
     company:    shortCompany(lead.company ?? '') || fb.company,
     building:   (lead.building ?? '').trim() || fb.building,
     owner_name: ctx.ownerName,
-    business:   ctx.business,
+    business:   shortCompany(ctx.business),
     phone:      ctx.phone,
     greeting:   greetingFor(first, (lead.company ?? '').trim(), ctx.lang),
-    signature:  `${ctx.lang === 'ru' ? 'С уважением,' : 'Best,'}\n\nMichael K\n${ctx.business}\n240-599-6037\nWebsite | TikTok   [logo]`,
+    signature:  `${ctx.lang === 'ru' ? 'С уважением,' : 'Best,'}\nMichael K\n${shortCompany(ctx.business)}\n240-599-6037`,
   }
   return text
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k: string) => (k in values ? values[k] : m))
@@ -56,6 +56,17 @@ export function renderOutreach(
 }
 
 export interface StepDraft { delay_days: number; subject: string; body: string }
+
+/**
+ * Legal footer for hand-sent outreach: who we are, where we are, and how to
+ * opt out. US law (CAN-SPAM) wants both on every commercial email.
+ */
+export function outreachFooter(legalName: string, address: string, lang: Lang): string {
+  const addr = address.replace(/\s*\n\s*/g, ', ').trim()
+  return lang === 'ru'
+    ? `\n\n--\n${legalName}, ${addr}\nЕсли не хотите получать письма, ответьте «нет, спасибо», и я больше не напишу.`
+    : `\n\n--\n${legalName}, ${addr}\nIf you'd rather not hear from me, reply "no thanks" and I won't follow up.`
+}
 
 /** Starter sequences. Fully editable per campaign after creation. */
 export function starterSteps(audience: CampaignAudience, lang: Lang): StepDraft[] {
