@@ -358,6 +358,10 @@ const en = {
   'lead.empty': 'No leads yet. New ones from your ads and outreach will show up here.',
   'lead.confirmDelete': 'Delete this lead?',
   'lead.pipelineValue': '{amount} in the pipeline',
+  'lead.textPm':
+    "{hi} this is Michael with Companit Expert, a Brooklyn painting and renovation team. We do apartment turnovers, painting and repairs for property managers. Any vacant units coming up we could quote? See our work: {site} Reply STOP to opt out.",
+  'lead.text': 'Text',
+  'lead.markTexted': 'Texted',
   'lead.wonValue': '{amount} won this month',
   'm.newLead': 'New lead',
   'm.editLead': 'Edit lead',
@@ -880,6 +884,10 @@ const ru: Record<TKey, string> = {
   'lead.new': '+ Новая заявка',
   'lead.empty': 'Заявок пока нет. Новые из рекламы и обзвона появятся здесь.',
   'lead.confirmDelete': 'Удалить эту заявку?',
+  'lead.textPm':
+    '{hi} это Майкл из Companit Expert, бригада по покраске и ремонту в Бруклине. Делаем подготовку квартир, покраску и ремонт для управляющих компаний. Есть ли свободные квартиры, которые мы могли бы оценить? Наши работы: {site} Ответьте STOP, чтобы отписаться.',
+  'lead.text': 'Написать',
+  'lead.markTexted': 'Написал',
   'lead.pipelineValue': '{amount} в работе',
   'lead.wonValue': '{amount} выиграно за месяц',
   'm.newLead': 'Новая заявка',
